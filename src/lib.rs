@@ -252,10 +252,12 @@ pub struct PyModules<'p>(Python<'p>);
 
 #[cfg(feature = "pyo3")]
 impl PyModules<'_> {
-    pub fn override_key(&self, location: &str) -> PyResult<Option<u32>> {
+    pub fn override_key(&self, location: &str, item: &str) -> PyResult<Option<u32>> {
         let mod_location = self.0.import("Location")?;
         let location = mod_location.getattr("LocationFactory")?.call1((location,))?;
         let default = location.getattr("default")?;
+        let mod_item = self.0.import("Item")?;
+        let item = mod_item.getattr("ItemFactory")?.call1((item,))?;
         Ok(if let (Some(scene), false) = (location.getattr("scene")?.extract()?, default.is_none()) {
             let (kind, default) = match location.getattr("type")?.extract()? {
                 "NPC" | "Scrub" | "BossHeart" => (0, default.extract::<u16>()?),
@@ -266,8 +268,8 @@ impl PyModules<'_> {
                 }
                 "Collectable" | "ActorOverride" => (2, default.extract()?),
                 "GS Token" => (3, default.extract()?),
-                "Shop" if location.getattr("item")?.getattr("type")?.extract::<&str>()? != "Shop" => (0, default.extract()?),
-                "GrottoScrub" if location.getattr("item")?.getattr("type")?.extract::<&str>()? != "Shop" => (4, default.extract()?),
+                "Shop" if item.getattr("type")?.extract::<&str>()? != "Shop" => (0, default.extract()?),
+                "GrottoScrub" if item.getattr("type")?.extract::<&str>()? != "Shop" => (4, default.extract()?),
                 "Song" | "Cutscene" => (5, default.extract()?),
                 _ => return Ok(None),
             };
