@@ -12,14 +12,15 @@ use {
     wheel::traits::AsyncCommandOutputExt as _,
 };
 #[cfg(unix)] use xdg::BaseDirectories;
+#[cfg(windows)] use directories::UserDirs;
 #[cfg(feature = "pyo3")] use {
     pyo3::{
+        exceptions::*,
         prelude::*,
         types::PyList,
     },
     crate::lazy::PyLazy,
 };
-#[cfg(all(unix, feature = "pyo3"))] use pyo3::exceptions::*;
 
 #[cfg(feature = "pyo3")] mod lazy;
 
@@ -80,6 +81,9 @@ pub enum DirError {
     #[cfg(unix)]
     #[error("midos-house data directory not found")]
     DataPath,
+    #[cfg(windows)]
+    #[error("failed to access user directories")]
+    UserDirs,
 }
 
 #[cfg(feature = "pyo3")] impl From<DirError> for PyErr {
@@ -87,6 +91,7 @@ pub enum DirError {
         match e {
             #[cfg(unix)] DirError::Xdg(e) => tokio::io::Error::from(e).into(),
             #[cfg(unix)] DirError::DataPath => PyFileNotFoundError::new_err(e.to_string()),
+            #[cfg(windows)] DirError::UserDirs => PyFileNotFoundError::new_err(e.to_string()),
         }
     }
 }
@@ -130,18 +135,23 @@ impl Version {
         #[cfg(unix)] {
             BaseDirectories::new()?.find_data_file("midos-house").ok_or(DirError::DataPath)
         }
-        #[cfg(not(unix))] {
-            unimplemented!()
+        #[cfg(windows)] {
+            Ok(UserDirs::new().ok_or(DirError::UserDirs)?.home_dir().join("git").join("github.com").join(self.branch.github_username()).join("OoT-Randomizer").join("tag"))
         }
     }
 
     fn dir_name(&self) -> String {
-        format!(
-            "rando-{}-{}{}",
-            self.branch.web_name_known_settings(),
-            self.base,
-            if let Some(supplementary) = self.supplementary { format!("-{supplementary}") } else { String::default() },
-        )
+        #[cfg(unix)] {
+            format!(
+                "rando-{}-{}{}",
+                self.branch.web_name_known_settings(),
+                self.base,
+                if let Some(supplementary) = self.supplementary { format!("-{supplementary}") } else { String::default() },
+            )
+        }
+        #[cfg(windows)] {
+            self.base.to_string() //TODO adjust for tag systems on branches other than Dev
+        }
     }
 
     pub fn dir(&self) -> Result<PathBuf, DirError> {
