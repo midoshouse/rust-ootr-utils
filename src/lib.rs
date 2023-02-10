@@ -248,10 +248,13 @@ impl fmt::Display for Version {
 }
 
 #[cfg(feature = "pyo3")]
+#[derive(Clone, Copy)]
 pub struct PyModules<'p>(Python<'p>);
 
 #[cfg(feature = "pyo3")]
 impl PyModules<'_> {
+    pub fn py(&self) -> Python<'_> { self.0 }
+
     pub fn override_key(&self, location: &str, item: &str) -> PyResult<Option<u32>> {
         let mod_location = self.0.import("Location")?;
         let location = mod_location.getattr("LocationFactory")?.call1((location,))?;
