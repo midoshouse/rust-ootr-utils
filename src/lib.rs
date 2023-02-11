@@ -1,3 +1,6 @@
+#![deny(rust_2018_idioms, unused, unused_crate_dependencies, unused_import_braces, unused_lifetimes, unused_qualifications, warnings)]
+#![forbid(unsafe_code)]
+
 use {
     std::{
         fmt,
@@ -23,6 +26,7 @@ use {
 };
 
 #[cfg(feature = "pyo3")] mod lazy;
+pub mod spoiler;
 
 #[cfg(feature = "pyo3")] static MODULE_SEARCH_PATH: PyLazy<PyResult<Vec<String>>> = PyLazy::new(|py| py.import("sys")?.getattr("path")?.extract());
 
