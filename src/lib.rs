@@ -192,7 +192,7 @@ impl Version {
         };
         new_path.push(self.dir()?.into_os_string().into_string().expect("non-UTF-8 randomizer path"));
         py.import("sys")?.getattr("path")?.downcast::<PyList>()?.set_slice(0, py.import("sys")?.getattr("path")?.downcast::<PyList>()?.len(), new_path.into_py(py).as_ref(py))?;
-        Ok(PyModules(py))
+        Ok(PyModules { version: self.clone(), py })
     }
 }
 
@@ -252,18 +252,22 @@ impl fmt::Display for Version {
 }
 
 #[cfg(feature = "pyo3")]
-#[derive(Clone, Copy)]
-pub struct PyModules<'p>(Python<'p>);
+#[derive(Clone)]
+pub struct PyModules<'p> {
+    py: Python<'p>,
+    version: Version,
+}
 
 #[cfg(feature = "pyo3")]
 impl PyModules<'_> {
-    pub fn py(&self) -> Python<'_> { self.0 }
+    pub fn py(&self) -> Python<'_> { self.py }
+    pub fn version(&self) -> &Version { &self.version }
 
     pub fn override_key(&self, location: &str, item: &str) -> PyResult<Option<u32>> {
-        let mod_location = self.0.import("Location")?;
+        let mod_location = self.py.import("Location")?;
         let location = mod_location.getattr("LocationFactory")?.call1((location,))?;
         let default = location.getattr("default")?;
-        let mod_item = self.0.import("Item")?;
+        let mod_item = self.py.import("Item")?;
         let item = mod_item.getattr("ItemFactory")?.call1((item,))?;
         Ok(if let (Some(scene), false) = (location.getattr("scene")?.extract()?, default.is_none()) {
             let (kind, default) = match location.getattr("type")?.extract()? {
@@ -280,15 +284,19 @@ impl PyModules<'_> {
                 "Song" | "Cutscene" => (5, default.extract()?),
                 _ => return Ok(None),
             };
-            let [default_hi, default_lo] = default.to_be_bytes();
-            Some(u32::from_be_bytes([scene, kind, default_hi, default_lo]))
+            Some(if self.version.base < semver::Version::new(6, 9, 1) {
+                u32::from_be_bytes([0, scene, kind, default as u8])
+            } else {
+                let [default_hi, default_lo] = default.to_be_bytes();
+                u32::from_be_bytes([scene, kind, default_hi, default_lo])
+            })
         } else {
             None
         })
     }
 
     pub fn item_kind(&self, item: &str) -> PyResult<Option<u16>> {
-        let item_list = self.0.import("ItemList")?;
+        let item_list = self.py.import("ItemList")?;
         Ok(item_list.getattr("item_table")?.call_method1("get", (item,))?.extract::<Option<(&PyAny, &PyAny, _, &PyAny)>>()?.map(|(_, _, kind, _)| kind))
     }
 }
