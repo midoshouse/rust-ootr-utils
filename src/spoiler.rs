@@ -73,6 +73,7 @@ pub struct SpoilerLog {
     #[serde(rename = ":version")]
     pub version: crate::Version,
     pub settings: Settings,
+    pub randomized_settings: RandomizedSettings,
     #[serde(deserialize_with = "deserialize_multiworld")]
     pub locations: Vec<Locations>,
 }
@@ -256,6 +257,12 @@ pub struct Settings {
     pub invisible_chests: bool,
 }
 
+#[derive(Deserialize)]
+pub struct RandomizedSettings {
+    #[serde(default)]
+    pub bridge: Bridge,
+}
+
 #[derive(Default, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Bridge {
@@ -267,6 +274,7 @@ pub enum Bridge {
     Dungeons,
     Tokens,
     Hearts,
+    Random,
 }
 
 #[derive(Default, Deserialize)]
