@@ -280,6 +280,7 @@ impl PyModules<'_> {
                 "Collectable" | "ActorOverride" => (2, default.extract()?),
                 "GS Token" => (3, default.extract()?),
                 "Shop" if item.getattr("type")?.extract::<&str>()? != "Shop" => (0, default.extract()?),
+                //TODO MaskShop location support
                 "GrottoScrub" if item.getattr("type")?.extract::<&str>()? != "Shop" => (4, default.extract()?),
                 "Song" | "Cutscene" => (5, default.extract()?),
                 _ => return Ok(None),

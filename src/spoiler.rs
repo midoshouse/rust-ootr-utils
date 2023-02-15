@@ -241,8 +241,8 @@ pub struct Settings {
     pub world_count: NonZeroU8,
     #[serde(default)]
     pub bridge: Bridge,
-    #[serde(default)]
-    pub bombchus_in_logic: bool,
+    #[serde(default, alias = "bombchus_in_logic")]
+    pub free_bombchu_drops: bool,
     #[serde(default)]
     pub shuffle_ganon_bosskey: ShuffleGanonBosskey,
     #[serde(default)]
