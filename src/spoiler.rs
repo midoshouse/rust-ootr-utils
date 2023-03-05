@@ -327,7 +327,16 @@ pub enum CorrectChestAppearances {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum MinorItemAsMajorChest {
+enum MinorItemsAsMajorChestCombobox {
+    Off,
+    Shields,
+    Bombchus,
+    Both,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum MinorItemsAsMajorChestMultiselect {
     Bombchus,
     Shields,
 }
@@ -337,19 +346,26 @@ enum MinorItemAsMajorChest {
 #[serde(untagged)]
 enum JsonMinorItemsAsMajorChest {
     Checkbox(bool),
-    Multiselect(Vec<MinorItemAsMajorChest>),
+    Combobox(MinorItemsAsMajorChestCombobox),
+    Multiselect(Vec<MinorItemsAsMajorChestMultiselect>),
 }
 
 impl From<JsonMinorItemsAsMajorChest> for MinorItemsAsMajorChest {
     fn from(value: JsonMinorItemsAsMajorChest) -> Self {
         match value {
             JsonMinorItemsAsMajorChest::Checkbox(value) => Self { bombchus: value, shields: value },
+            JsonMinorItemsAsMajorChest::Combobox(value) => match value {
+                MinorItemsAsMajorChestCombobox::Off => Self { bombchus: false, shields: false },
+                MinorItemsAsMajorChestCombobox::Shields => Self { bombchus: false, shields: true },
+                MinorItemsAsMajorChestCombobox::Bombchus => Self { bombchus: true, shields: false },
+                MinorItemsAsMajorChestCombobox::Both => Self { bombchus: true, shields: true },
+            },
             JsonMinorItemsAsMajorChest::Multiselect(items) => {
                 let mut value = Self { bombchus: false, shields: false };
                 for item in items {
                     match item {
-                        MinorItemAsMajorChest::Bombchus => value.bombchus = true,
-                        MinorItemAsMajorChest::Shields => value.shields = true,
+                        MinorItemsAsMajorChestMultiselect::Bombchus => value.bombchus = true,
+                        MinorItemsAsMajorChestMultiselect::Shields => value.shields = true,
                     }
                 }
                 value
