@@ -40,7 +40,7 @@ pub enum Branch {
 impl Branch {
     pub fn github_username(&self) -> &'static str {
         match self {
-            Self::Dev => "TestRunnerSRL",
+            Self::Dev => "OoTRandomizer",
             Self::DevFenhl => "fenhl",
             Self::DevR => "Roman971",
         }
