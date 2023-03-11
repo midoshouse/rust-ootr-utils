@@ -104,6 +104,8 @@ pub enum DirError {
 pub enum CloneError {
     #[error(transparent)] Dir(#[from] DirError),
     #[error(transparent)] Wheel(#[from] wheel::Error),
+    #[error("sorry, this branch is not yet supported")]
+    BisectNotImplemented,
 }
 
 impl Version {
@@ -164,20 +166,26 @@ impl Version {
 
     pub async fn clone_repo(&self) -> Result<(), CloneError> {
         if !self.dir()?.exists() {
-            let mut command = Command::new("git");
+            let mut command = Command::new("git"); //TODO use git2 crate instead?
             command.arg("clone");
-            command.arg("--depth=1"); //TODO don't use for branches that have to be bisected
             command.arg(format!("https://github.com/{}/OoT-Randomizer.git", self.branch.github_username()));
             command.arg(self.dir_name());
             command.current_dir(self.dir_parent()?);
-            match self.branch {
+            let bisect = match self.branch {
                 Branch::Dev => {
                     command.arg(format!("--branch={}", self.base));
+                    false
                 }
                 Branch::DevFenhl => {
                     command.arg(format!("--branch={}-fenhl.{}", self.base, self.supplementary.unwrap()));
+                    false
                 }
-                Branch::DevR => unimplemented!(), //TODO bisect Dev-R to find the requested version
+                Branch::DevR => true, //TODO bisect Dev-R to find the requested version
+            };
+            if bisect {
+                return Err(CloneError::BisectNotImplemented) //TODO
+            } else {
+                command.arg("--depth=1");
             }
             command.check("git").await?;
         }
