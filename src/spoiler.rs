@@ -1,5 +1,6 @@
 use {
     std::{
+        collections::BTreeMap,
         fmt,
         iter,
         marker::PhantomData,
@@ -67,7 +68,7 @@ fn deserialize_multiworld<'de, D: Deserializer<'de>, T: Deserialize<'de>>(deseri
     deserializer.deserialize_map(MultiworldVisitor { _marker: PhantomData })
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, Protocol)]
 pub struct SpoilerLog {
     pub file_hash: [HashIcon; 5],
     #[serde(rename = ":version")]
@@ -75,10 +76,10 @@ pub struct SpoilerLog {
     pub settings: Settings,
     pub randomized_settings: RandomizedSettings,
     #[serde(deserialize_with = "deserialize_multiworld")]
-    pub locations: Vec<Locations>,
+    pub locations: Vec<BTreeMap<String, Item>>,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, Protocol)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Protocol)]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(type_name = "hash_icon"))]
 pub enum HashIcon {
     #[serde(rename = "Deku Stick")]
@@ -236,7 +237,7 @@ derive_display_from_serialize!(HashIcon);
 
 fn make_one() -> NonZeroU8 { NonZeroU8::new(1).unwrap() }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, Protocol)]
 pub struct Settings {
     #[serde(default = "make_one")]
     pub world_count: NonZeroU8,
@@ -257,13 +258,13 @@ pub struct Settings {
     pub invisible_chests: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, Protocol)]
 pub struct RandomizedSettings {
     #[serde(default)]
     pub bridge: Bridge,
 }
 
-#[derive(Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Protocol)]
 #[serde(rename_all = "snake_case")]
 pub enum Bridge {
     Open,
@@ -277,7 +278,7 @@ pub enum Bridge {
     Random,
 }
 
-#[derive(Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Protocol)]
 #[serde(rename_all = "snake_case")]
 pub enum LacsCondition {
     #[default]
@@ -290,7 +291,7 @@ pub enum LacsCondition {
     Hearts,
 }
 
-#[derive(Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Protocol)]
 #[serde(rename_all = "snake_case")]
 pub enum ShuffleGanonBosskey {
     Remove,
@@ -314,7 +315,7 @@ pub enum ShuffleGanonBosskey {
     Hearts,
 }
 
-#[derive(Default, Clone, Copy, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, Deserialize, Protocol)]
 #[serde(rename_all = "snake_case")]
 pub enum CorrectChestAppearances {
     #[default]
@@ -374,23 +375,11 @@ impl From<JsonMinorItemsAsMajorChest> for MinorItemsAsMajorChest {
     }
 }
 
-#[derive(Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Protocol)]
 #[serde(from = "JsonMinorItemsAsMajorChest")]
 pub struct MinorItemsAsMajorChest {
     pub bombchus: bool,
     pub shields: bool,
-}
-
-fn make_blue_rupee() -> Item { Item { item: format!("Rupees (5)"), model: None } }
-fn make_green_rupee() -> Item { Item { item: format!("Rupee (1)"), model: None } }
-fn make_recovery_heart() -> Item { Item { item: format!("Recovery Heart"), model: None } }
-
-#[derive(Deserialize)]
-pub struct Locations {
-    #[serde(rename = "KF Midos Top Left Chest", alias = "Mido Chest Top Left", default = "make_blue_rupee")] pub kf_midos_top_left_chest: Item,
-    #[serde(rename = "KF Midos Top Right Chest", alias = "Mido Chest Top Right", default = "make_blue_rupee")] pub kf_midos_top_right_chest: Item,
-    #[serde(rename = "KF Midos Bottom Left Chest", alias = "Mido Chest Bottom Left", default = "make_green_rupee")] pub kf_midos_bottom_left_chest: Item,
-    #[serde(rename = "KF Midos Bottom Right Chest", alias = "Mido Chest Bottom Right", default = "make_recovery_heart")] pub kf_midos_bottom_right_chest: Item,
 }
 
 #[derive(Deserialize)]
@@ -398,14 +387,17 @@ pub struct Locations {
 enum JsonItem {
     Simple(String),
     Complex {
+        #[serde(default = "make_one")]
+        player: NonZeroU8,
         item: String,
         model: Option<String>,
     },
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, Protocol)]
 #[serde(from = "JsonItem")]
 pub struct Item {
+    pub player: NonZeroU8,
     pub item: String,
     pub model: Option<String>,
 }
@@ -413,8 +405,8 @@ pub struct Item {
 impl From<JsonItem> for Item {
     fn from(item: JsonItem) -> Self {
         match item {
-            JsonItem::Simple(item) => Self { item, model: None },
-            JsonItem::Complex { item, model } => Self { item, model },
+            JsonItem::Simple(item) => Self { item, player: make_one(), model: None },
+            JsonItem::Complex { player, item, model } => Self { player, item, model },
         }
     }
 }
