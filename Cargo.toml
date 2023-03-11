@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 async-proto = { version = "0.16.2", features = ["semver"] }
+git2 = "0.16.1"
 itertools = "0.10.5"
 lazy-regex = "2.4.1"
 pyo3 = { version = "0.18.0", features = ["auto-initialize"], optional = true }

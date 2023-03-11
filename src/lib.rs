@@ -4,10 +4,17 @@
 use {
     std::{
         fmt,
-        path::PathBuf,
+        path::{
+            Path,
+            PathBuf,
+        },
         str::FromStr,
     },
     async_proto::Protocol,
+    git2::{
+        Repository,
+        ResetType,
+    },
     itertools::Itertools as _,
     lazy_regex::regex_captures,
     serde_plain::derive_deserialize_from_fromstr,
@@ -103,9 +110,19 @@ pub enum DirError {
 #[derive(Debug, thiserror::Error)]
 pub enum CloneError {
     #[error(transparent)] Dir(#[from] DirError),
+    #[error(transparent)] Git(#[from] git2::Error),
+    #[error(transparent)] Utf8(#[from] std::str::Utf8Error),
     #[error(transparent)] Wheel(#[from] wheel::Error),
-    #[error("sorry, this branch is not yet supported")]
-    BisectNotImplemented,
+    #[error("failed to convert git object")]
+    GitObject,
+    #[error("the given version was not found on its branch")]
+    VersionNotFound,
+}
+
+impl<'a> From<git2::Object<'a>> for CloneError {
+    fn from(_: git2::Object<'a>) -> Self {
+        Self::GitObject
+    }
 }
 
 impl Version {
@@ -165,8 +182,9 @@ impl Version {
     }
 
     pub async fn clone_repo(&self) -> Result<(), CloneError> {
-        if !self.dir()?.exists() {
-            let mut command = Command::new("git"); //TODO use git2 crate instead?
+        let dir = self.dir()?;
+        if !dir.exists() {
+            let mut command = Command::new("git"); //TODO use git2 or gix instead? (git2 doesn't support shallow clones, gix is very low level)
             command.arg("clone");
             command.arg(format!("https://github.com/{}/OoT-Randomizer.git", self.branch.github_username()));
             command.arg(self.dir_name());
@@ -180,14 +198,31 @@ impl Version {
                     command.arg(format!("--branch={}-fenhl.{}", self.base, self.supplementary.unwrap()));
                     false
                 }
-                Branch::DevR => true, //TODO bisect Dev-R to find the requested version
+                Branch::DevR => true,
             };
-            if bisect {
-                return Err(CloneError::BisectNotImplemented) //TODO
-            } else {
+            if !bisect {
                 command.arg("--depth=1");
             }
             command.check("git").await?;
+            if bisect {
+                let repo = Repository::open(dir)?;
+                let mut commit = repo.head()?.peel_to_commit()?;
+                loop {
+                    let blob = commit.tree()?.get_path(Path::new("version.py"))?.to_object(&repo)?.into_blob()?;
+                    let version_py = std::str::from_utf8(blob.content())?;
+                    if version_py.lines()
+                        .filter_map(|line| regex_captures!("^__version__ = '([0-9.]+)'$", line))
+                        .filter_map(|(_, base_version)| base_version.parse::<semver::Version>().ok())
+                        .any(|base_version| base_version == self.base)
+                    && self.supplementary.map_or(true, |supplementary| version_py.lines()
+                        .filter_map(|line| regex_captures!("^supplementary_version = ([0-9]+)$", line))
+                        .filter_map(|(_, supplementary_version)| supplementary_version.parse::<u8>().ok())
+                        .any(|supplementary_version| supplementary_version == supplementary))
+                    { break }
+                    commit = commit.parents().next().ok_or(CloneError::VersionNotFound)?;
+                }
+                repo.reset(&commit.into_object(), ResetType::Hard, None)?;
+            }
         }
         Ok(())
     }
