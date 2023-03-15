@@ -394,7 +394,7 @@ enum JsonItem {
     },
 }
 
-#[derive(Debug, Deserialize, Protocol)]
+#[derive(Debug, Clone, Deserialize, Protocol)]
 #[serde(from = "JsonItem")]
 pub struct Item {
     pub player: NonZeroU8,

@@ -32,6 +32,7 @@ use {
     crate::lazy::PyLazy,
 };
 
+pub mod camc;
 #[cfg(feature = "pyo3")] mod lazy;
 pub mod spoiler;
 
