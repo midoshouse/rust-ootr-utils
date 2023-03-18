@@ -108,7 +108,7 @@ impl ChestAppearance {
         let camc_version = Version::from_rando_version(&version);
         let camc_kind = match camc_version {
             Version::Classic => if settings.correct_chest_sizes { CorrectChestAppearances::Classic } else { CorrectChestAppearances::Off },
-            Version::Initial | Version::Pr1500 | Version::Pr1751 => settings.correct_chest_appearances.unwrap_or_default(),
+            Version::Initial | Version::Pr1500 | Version::Pr1751 | Version::Pr1908 => settings.correct_chest_appearances.unwrap_or_default(),
         };
         let chus_in_major_chests = settings.free_bombchu_drops || settings.minor_items_as_major_chest.bombchus;
         let shields_in_major_chests = settings.minor_items_as_major_chest.shields;
