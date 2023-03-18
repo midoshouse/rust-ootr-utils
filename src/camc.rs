@@ -13,7 +13,7 @@ use {
     },
 };
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Version {
     /// The original “Chest Size Matches Contents” setting, added in [commit 9866777](https://github.com/OoTRandomizer/OoT-Randomizer/tree/9866777f66083dfc8dde90fba5a71302b34459fb)
     Classic,
@@ -24,11 +24,15 @@ pub enum Version {
     Pr1500,
     /// The adjusted small key texture from [PR #1751](https://github.com/OoTRandomizer/OoT-Randomizer/pull/1751), [version 6.2.233](https://github.com/OoTRandomizer/OoT-Randomizer/tree/38334774503cd9a2c7389e222abe5884617830b7)
     Pr1751,
+    /// The addition of heart chest textures from [PR #1908](https://github.com/OoTRandomizer/OoT-Randomizer/pull/1908), [version 7.1.76](https://github.com/OoTRandomizer/OoT-Randomizer/tree/9e823509c41cbcd3f53081cf9d99ceedc96036e7)
+    Pr1908,
 }
 
 impl Version {
     pub fn from_rando_version(rando_version: &crate::Version) -> Self {
-        if *rando_version.base() >= semver::Version::new(6, 2, 233) {
+        if *rando_version.base() >= semver::Version::new(7, 1, 76) {
+            Self::Pr1908
+        } else if *rando_version.base() >= semver::Version::new(6, 2, 233) {
             Self::Pr1751
         } else if *rando_version.base() >= semver::Version::new(6, 2, 54) {
             Self::Pr1500
@@ -53,6 +57,7 @@ pub enum ChestTexture {
     BossKey,
     Token,
     Invisible,
+    Heart,
 }
 
 impl TryFrom<char> for ChestTexture {
@@ -69,6 +74,7 @@ impl TryFrom<char> for ChestTexture {
             'b' => Ok(Self::BossKey),
             's' => Ok(Self::Token),
             'd' => Ok(Self::Invisible),
+            'h' => Ok(Self::Heart),
             _ => Err(c),
         }
     }
@@ -86,6 +92,7 @@ impl From<ChestTexture> for char {
             ChestTexture::BossKey => 'b',
             ChestTexture::Token => 's',
             ChestTexture::Invisible => 'd',
+            ChestTexture::Heart => 'h',
         }
     }
 }
@@ -221,7 +228,7 @@ impl ChestAppearance {
             "Spirit Medallion" => match camc_kind {
                 CorrectChestAppearances::Off => unreachable!(),
                 CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::Normal, big: true },
-                CorrectChestAppearances::Textures => ChestAppearance { texture: ChestTexture::Major, big: false },
+                CorrectChestAppearances::Textures => ChestAppearance { texture: ChestTexture::Major, big: vanilla_appearance.big },
                 CorrectChestAppearances::Both => ChestAppearance { texture: ChestTexture::Major, big: true },
             },
             "Boss Key (Forest Temple)" |
@@ -232,7 +239,7 @@ impl ChestAppearance {
             "Boss Key (Ganons Castle)" => match camc_kind {
                 CorrectChestAppearances::Off => unreachable!(),
                 CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::BossKey, big: true },
-                CorrectChestAppearances::Textures => ChestAppearance { texture: ChestTexture::BossKey, big: false },
+                CorrectChestAppearances::Textures => ChestAppearance { texture: ChestTexture::BossKey, big: vanilla_appearance.big },
                 CorrectChestAppearances::Both => ChestAppearance { texture: ChestTexture::BossKey, big: true },
             },
             "Small Key (Forest Temple)" |
@@ -301,7 +308,7 @@ impl ChestAppearance {
             "Silver Rupee Pouch (Ganons Castle Forest Trial)" => match camc_kind {
                 CorrectChestAppearances::Off => unreachable!(),
                 CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::BossKey, big: false },
-                CorrectChestAppearances::Textures => ChestAppearance { texture: ChestTexture::SmallKeyOld, big: false },
+                CorrectChestAppearances::Textures => ChestAppearance { texture: ChestTexture::SmallKeyOld, big: vanilla_appearance.big },
                 CorrectChestAppearances::Both => ChestAppearance { texture: ChestTexture::SmallKeyOld, big: false },
             },
             "Ice Trap" => unreachable!(),
@@ -310,7 +317,7 @@ impl ChestAppearance {
             "Bombchus (20)" => match camc_kind {
                 CorrectChestAppearances::Off => unreachable!(),
                 CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::Normal, big: chus_in_major_chests },
-                CorrectChestAppearances::Textures => ChestAppearance { texture: if chus_in_major_chests { ChestTexture::Major } else { ChestTexture::Normal }, big: false },
+                CorrectChestAppearances::Textures => ChestAppearance { texture: if chus_in_major_chests { ChestTexture::Major } else { ChestTexture::Normal }, big: vanilla_appearance.big },
                 CorrectChestAppearances::Both => ChestAppearance { texture: if chus_in_major_chests { ChestTexture::Major } else { ChestTexture::Normal }, big: chus_in_major_chests },
             },
             "Deku Shield" |
@@ -318,16 +325,25 @@ impl ChestAppearance {
             "Gold Skulltula Token" => match camc_kind {
                 CorrectChestAppearances::Off => unreachable!(),
                 CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::Normal, big: token_wincon },
-                CorrectChestAppearances::Textures => ChestAppearance { texture: ChestTexture::Token, big: false },
+                CorrectChestAppearances::Textures => ChestAppearance { texture: ChestTexture::Token, big: vanilla_appearance.big },
                 CorrectChestAppearances::Both => ChestAppearance { texture: ChestTexture::Token, big: token_wincon },
             },
             "Heart Container" |
             "Piece of Heart" |
-            "Piece of Heart (Treasure Chest Game)" => match camc_kind {
-                CorrectChestAppearances::Off => unreachable!(),
-                CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::Normal, big: heart_wincon },
-                CorrectChestAppearances::Textures => ChestAppearance { texture: if heart_wincon { ChestTexture::Major } else { ChestTexture::Normal }, big: false },
-                CorrectChestAppearances::Both => ChestAppearance { texture: if heart_wincon { ChestTexture::Major } else { ChestTexture::Normal }, big: heart_wincon },
+            "Piece of Heart (Treasure Chest Game)" => if camc_version >= Version::Pr1908 {
+                match camc_kind {
+                    CorrectChestAppearances::Off => unreachable!(),
+                    CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::Normal, big: heart_wincon },
+                    CorrectChestAppearances::Textures => ChestAppearance { texture: ChestTexture::Heart, big: vanilla_appearance.big },
+                    CorrectChestAppearances::Both => ChestAppearance { texture: ChestTexture::Heart, big: heart_wincon },
+                }
+            } else {
+                match camc_kind {
+                    CorrectChestAppearances::Off => unreachable!(),
+                    CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::Normal, big: heart_wincon },
+                    CorrectChestAppearances::Textures => ChestAppearance { texture: if heart_wincon { ChestTexture::Major } else { ChestTexture::Normal }, big: vanilla_appearance.big },
+                    CorrectChestAppearances::Both => ChestAppearance { texture: if heart_wincon { ChestTexture::Major } else { ChestTexture::Normal }, big: heart_wincon },
+                }
             },
             "Bombs (5)" |
             "Deku Nuts (5)" |
@@ -373,14 +389,19 @@ impl ChestAppearance {
             "Deku Seeds (30)" |
             "Rupee (Treasure Chest Game)" |
             "Deku Stick Capacity" |
-            "Deku Nut Capacity" => ChestAppearance { texture: ChestTexture::Normal, big: false },
+            "Deku Nut Capacity" => match camc_kind {
+                CorrectChestAppearances::Off => unreachable!(),
+                CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::Normal, big: false },
+                CorrectChestAppearances::Textures => ChestAppearance { texture: ChestTexture::Normal, big: vanilla_appearance.big },
+                CorrectChestAppearances::Both => ChestAppearance { texture: ChestTexture::Normal, big: false },
+            },
             _ => unimplemented!("unknown item: {item_name}"),
         };
         match camc_version {
             Version::Classic => {}
             Version::Initial => if let ChestTexture::Major = appearance.texture { appearance.texture = ChestTexture::OldMajor },
             Version::Pr1500 => if let ChestTexture::SmallKeyOld = appearance.texture { appearance.texture = ChestTexture::SmallKey1500 },
-            Version::Pr1751 => if let ChestTexture::SmallKeyOld = appearance.texture { appearance.texture = ChestTexture::SmallKey1751 },
+            Version::Pr1751 | Version::Pr1908 => if let ChestTexture::SmallKeyOld = appearance.texture { appearance.texture = ChestTexture::SmallKey1751 },
         }
         appearance
     }
