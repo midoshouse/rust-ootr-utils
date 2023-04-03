@@ -16,7 +16,7 @@ serde_plain = "1.0.1"
 sqlx = { version = "0.6.2", optional = true, features = ["runtime-tokio-rustls"] }
 thiserror = "1.0.38"
 tokio = { version = "1.25.0", features = ["process"] }
-wheel = { git = "https://github.com/fenhl/wheel", branch = "main", version = "0.8.2" }
+wheel = { git = "https://github.com/fenhl/wheel", branch = "main" }
 
 [target."cfg(unix)".dependencies]
 xdg = "2.4.1"
