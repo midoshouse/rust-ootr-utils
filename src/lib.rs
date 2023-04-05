@@ -268,7 +268,7 @@ impl FromStr for Version {
             }
             [base, extra] => {
                 let (_, major, minor, patch) = regex_captures!(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$", base).ok_or(VersionParseError::Base)?;
-                if *extra == "f.LUM" {
+                if let "f.LUM" | "Release" = *extra {
                     Ok(Self::from_dev(major.parse()?, minor.parse()?, patch.parse()?))
                 } else if let Some((_, supplementary)) = regex_captures!("^Fenhl-([0-9]+)$", extra) {
                     Ok(Self::from_branch(Branch::DevFenhl, major.parse()?, minor.parse()?, patch.parse()?, supplementary.parse()?))
