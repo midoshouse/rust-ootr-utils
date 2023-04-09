@@ -192,7 +192,15 @@ impl Version {
             command.current_dir(self.dir_parent()?);
             let bisect = match self.branch {
                 Branch::Dev => {
-                    command.arg(format!("--branch={}", self.base));
+                    if self.base.patch == 0 {
+                        if self.base.minor == 0 {
+                            command.arg(format!("--branch=v{}.{}", self.base.major, self.base.minor));
+                        } else {
+                            command.arg(format!("--branch=v{}", self.base));
+                        }
+                    } else {
+                        command.arg(format!("--branch={}", self.base));
+                    }
                     false
                 }
                 Branch::DevFenhl => {
