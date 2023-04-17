@@ -18,7 +18,10 @@ use {
             value::MapDeserializer,
         },
     },
-    serde_plain::derive_display_from_serialize,
+    serde_plain::{
+        derive_display_from_serialize,
+        derive_fromstr_from_deserialize,
+    },
 };
 
 fn deserialize_multiworld<'de, D: Deserializer<'de>, T: Deserialize<'de>>(deserializer: D) -> Result<Vec<T>, D::Error> {
@@ -233,6 +236,7 @@ impl HashIcon {
     }
 }
 
+derive_fromstr_from_deserialize!(HashIcon);
 derive_display_from_serialize!(HashIcon);
 
 fn make_one() -> NonZeroU8 { NonZeroU8::new(1).unwrap() }
