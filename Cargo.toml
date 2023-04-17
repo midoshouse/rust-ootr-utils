@@ -1,10 +1,11 @@
 [package]
 name = "ootr-utils"
-version = "0.1.10"
+version = "0.1.11"
 edition = "2021"
 
 [dependencies]
 async-proto = { version = "0.16.2", features = ["semver"] }
+enum-iterator = "1.4.0"
 git2 = "0.17"
 itertools = "0.10.5"
 lazy-regex = "2.4.1"

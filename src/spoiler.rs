@@ -7,6 +7,7 @@ use {
         num::NonZeroU8,
     },
     async_proto::Protocol,
+    enum_iterator::Sequence,
     itertools::Itertools as _,
     lazy_regex::regex_captures,
     serde::{
@@ -82,7 +83,7 @@ pub struct SpoilerLog {
     pub locations: Vec<BTreeMap<String, Item>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Protocol)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence, Deserialize, Serialize, Protocol)]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(type_name = "hash_icon"))]
 pub enum HashIcon {
     #[serde(rename = "Deku Stick")]
