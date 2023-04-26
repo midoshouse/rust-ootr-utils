@@ -19,7 +19,10 @@ use {
     lazy_regex::regex_captures,
     serde_plain::derive_deserialize_from_fromstr,
     tokio::process::Command,
-    wheel::traits::AsyncCommandOutputExt as _,
+    wheel::{
+        fs,
+        traits::AsyncCommandOutputExt as _,
+    },
 };
 #[cfg(unix)] use xdg::BaseDirectories;
 #[cfg(windows)] use directories::UserDirs;
@@ -189,11 +192,13 @@ impl Version {
     pub async fn clone_repo(&self) -> Result<(), CloneError> {
         let dir = self.dir()?;
         if !dir.exists() {
+            let parent = self.dir_parent()?;
+            fs::create_dir_all(&parent).await?;
             let mut command = Command::new("git"); //TODO use git2 or gix instead? (git2 doesn't support shallow clones, gix is very low level)
             command.arg("clone");
             command.arg(format!("https://github.com/{}/OoT-Randomizer.git", self.branch.github_username()));
             command.arg(self.repo_dir_name());
-            command.current_dir(self.dir_parent()?);
+            command.current_dir(parent);
             let bisect = match self.branch {
                 Branch::Dev => {
                     if self.base.patch == 0 {
