@@ -164,14 +164,18 @@ impl Version {
         }
     }
 
-    fn dir_name(&self) -> String {
+    pub fn dir_name(&self) -> String {
+        format!(
+            "rando-{}-{}{}",
+            self.branch.web_name_known_settings(),
+            self.base,
+            if let Some(supplementary) = self.supplementary { format!("-{supplementary}") } else { String::default() },
+        )
+    }
+
+    fn repo_dir_name(&self) -> String {
         #[cfg(unix)] {
-            format!(
-                "rando-{}-{}{}",
-                self.branch.web_name_known_settings(),
-                self.base,
-                if let Some(supplementary) = self.supplementary { format!("-{supplementary}") } else { String::default() },
-            )
+            self.dir_name()
         }
         #[cfg(windows)] {
             self.base.to_string() //TODO adjust for tag systems on branches other than Dev
@@ -179,7 +183,7 @@ impl Version {
     }
 
     pub fn dir(&self) -> Result<PathBuf, DirError> {
-        Ok(self.dir_parent()?.join(self.dir_name()))
+        Ok(self.dir_parent()?.join(self.repo_dir_name()))
     }
 
     pub async fn clone_repo(&self) -> Result<(), CloneError> {
@@ -188,7 +192,7 @@ impl Version {
             let mut command = Command::new("git"); //TODO use git2 or gix instead? (git2 doesn't support shallow clones, gix is very low level)
             command.arg("clone");
             command.arg(format!("https://github.com/{}/OoT-Randomizer.git", self.branch.github_username()));
-            command.arg(self.dir_name());
+            command.arg(self.repo_dir_name());
             command.current_dir(self.dir_parent()?);
             let bisect = match self.branch {
                 Branch::Dev => {
