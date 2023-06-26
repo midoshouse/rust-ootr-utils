@@ -335,7 +335,7 @@ impl PyModules<'_> {
                 "NPC" | "Scrub" | "BossHeart" => (0, default.extract::<u16>()?),
                 "Chest" => (1, default.extract::<u16>()? & 0x1f),
                 "Freestanding" | "Pot" | "Crate" | "FlyingPot" | "SmallCrate" | "RupeeTower" | "Beehive" | "SilverRupee" => {
-                    let (room, scene_setup, flag) = if default.is_instance_of::<PyList>()? { default.get_item(0)? } else { default }.extract::<(u16, u16, u16)>()?;
+                    let (room, scene_setup, flag) = if default.is_instance_of::<PyList>() { default.get_item(0)? } else { default }.extract::<(u16, u16, u16)>()?;
                     (6, room << 8 + scene_setup << 14 + flag)
                 }
                 "Collectable" | "ActorOverride" => (2, default.extract()?),
