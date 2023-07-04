@@ -104,7 +104,7 @@ pub struct ChestAppearance {
 }
 
 impl ChestAppearance {
-    pub fn from_item(SpoilerLog { version, settings, randomized_settings, .. }: &SpoilerLog, vanilla_appearance: ChestAppearance, item: Item) -> Self {
+    pub fn from_item(SpoilerLog { version, settings, randomized_settings, .. }: &SpoilerLog, mut vanilla_appearance: ChestAppearance, item: Item) -> Self {
         let camc_version = Version::from_rando_version(&version);
         let camc_kind = match camc_version {
             Version::Classic => if settings.correct_chest_sizes { CorrectChestAppearances::Classic } else { CorrectChestAppearances::Off },
@@ -114,13 +114,12 @@ impl ChestAppearance {
         let shields_in_major_chests = settings.minor_items_as_major_chest.shields;
         let token_wincon = matches!(settings.bridge, Bridge::Tokens) || matches!(settings.bridge, Bridge::Random) && matches!(randomized_settings.bridge, Bridge::Tokens) || matches!(settings.lacs_condition, LacsCondition::Tokens) || matches!(settings.shuffle_ganon_bosskey, ShuffleGanonBosskey::Tokens);
         let heart_wincon = matches!(settings.bridge, Bridge::Hearts) || matches!(settings.bridge, Bridge::Random) && matches!(randomized_settings.bridge, Bridge::Hearts) || matches!(settings.lacs_condition, LacsCondition::Hearts) || matches!(settings.shuffle_ganon_bosskey, ShuffleGanonBosskey::Hearts);
-        if settings.invisible_chests {
-            return Self {
-                texture: ChestTexture::Invisible,
-                big: false,
+        if let CorrectChestAppearances::Off = camc_kind {
+            if settings.invisible_chests {
+                vanilla_appearance.texture = ChestTexture::Invisible;
             }
+            return vanilla_appearance
         }
-        if let CorrectChestAppearances::Off = camc_kind { return vanilla_appearance }
         let item_name = if item.item == "Ice Trap" {
             item.model.as_deref().expect("ice trap without model in CSMC")
         } else {
@@ -402,6 +401,10 @@ impl ChestAppearance {
             Version::Initial => if let ChestTexture::Major = appearance.texture { appearance.texture = ChestTexture::OldMajor },
             Version::Pr1500 => if let ChestTexture::SmallKeyOld = appearance.texture { appearance.texture = ChestTexture::SmallKey1500 },
             Version::Pr1751 | Version::Pr1908 => if let ChestTexture::SmallKeyOld = appearance.texture { appearance.texture = ChestTexture::SmallKey1751 },
+        }
+        //TODO support for incorrect_chest_appearances setting
+        if settings.invisible_chests {
+            appearance.texture = ChestTexture::Invisible;
         }
         appearance
     }
