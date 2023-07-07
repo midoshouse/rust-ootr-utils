@@ -47,15 +47,16 @@ pub enum Branch {
     DevBlitz,
     DevFenhl,
     DevR,
+    Sgl,
 }
 
 impl Branch {
     pub fn github_username(&self) -> &'static str {
         match self {
             Self::Dev => "OoTRandomizer",
-            Self::DevBlitz => "Elagatua",
-            Self::DevFenhl => "fenhl",
+            Self::DevBlitz | Self::Sgl => "Elagatua",
             Self::DevR => "Roman971",
+            Self::DevFenhl => "fenhl",
         }
     }
 
@@ -65,6 +66,7 @@ impl Branch {
             Self::DevBlitz => "devTFBlitz",
             Self::DevFenhl => "devFenhl",
             Self::DevR => "devR",
+            Self::Sgl => "devSGLive22",
         }
     }
 
@@ -74,6 +76,7 @@ impl Branch {
             Self::DevBlitz => None,
             Self::DevFenhl => Some("devFenhlRSL"),
             Self::DevR => Some("devRSL"),
+            Self::Sgl => None,
         }
     }
 
@@ -222,6 +225,10 @@ impl Version {
                     false
                 }
                 Branch::DevBlitz | Branch::DevR => true,
+                Branch::Sgl => {
+                    command.arg("--branch=feature/sgl-2023");
+                    false // this branch is not versioned correctly
+                }
             };
             if !bisect {
                 command.arg("--depth=1");
@@ -292,6 +299,8 @@ impl FromStr for Version {
                 let (_, major, minor, patch) = regex_captures!(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$", base).ok_or(VersionParseError::Base)?;
                 if let "f.LUM" | "Release" = *extra {
                     Ok(Self::from_dev(major.parse()?, minor.parse()?, patch.parse()?))
+                } else if let "SGL" = *extra {
+                    Ok(Self::from_branch(Branch::Sgl, major.parse()?, minor.parse()?, patch.parse()?, 1))
                 } else if let Some((_, supplementary)) = regex_captures!("^blitz-([0-9]+)$", extra) {
                     Ok(Self::from_branch(Branch::DevBlitz, major.parse()?, minor.parse()?, patch.parse()?, supplementary.parse()?))
                 } else if let Some((_, supplementary)) = regex_captures!("^Fenhl-([0-9]+)$", extra) {
@@ -316,6 +325,7 @@ impl fmt::Display for Version {
             Branch::DevBlitz => write!(f, "{} blitz-{}", self.base, self.supplementary.unwrap()),
             Branch::DevFenhl => write!(f, "{} Fenhl-{}", self.base, self.supplementary.unwrap()),
             Branch::DevR => write!(f, "{} R-{}", self.base, self.supplementary.unwrap()),
+            Branch::Sgl => write!(f, "{} SGL", self.base),
         }
     }
 }
