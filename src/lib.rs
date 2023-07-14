@@ -51,6 +51,16 @@ pub enum Branch {
 }
 
 impl Branch {
+    pub fn from_id(branch_identifier: u8) -> Option<Self> {
+        match branch_identifier {
+            0x00 | 0x01 => Some(Self::Dev),
+            0x52 => Some(Self::DevR),
+            0x69 => Some(Self::DevBlitz),
+            0xfe => Some(Self::DevFenhl),
+            _ => None,
+        }
+    }
+
     pub fn github_username(&self) -> &'static str {
         match self {
             Self::Dev => "OoTRandomizer",
@@ -152,6 +162,15 @@ impl Version {
             supplementary: Some(supplementary),
             branch,
         }
+    }
+
+    pub fn from_bytes([major, minor, patch, branch, supplementary]: [u8; 5]) -> Option<Self> {
+        let branch = Branch::from_id(branch)?;
+        Some(if let Branch::Dev = branch {
+            Self::from_dev(major, minor, patch)
+        } else {
+            Self::from_branch(branch, major, minor, patch, supplementary)
+        })
     }
 
     pub fn branch(&self) -> Branch {
