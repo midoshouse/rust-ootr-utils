@@ -316,7 +316,7 @@ impl FromStr for Version {
             }
             [base, extra] => {
                 let (_, major, minor, patch) = regex_captures!(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$", base).ok_or(VersionParseError::Base)?;
-                if let "f.LUM" | "Release" = *extra {
+                if let "f.LUM" | "Release" | "pic-2" = *extra {
                     Ok(Self::from_dev(major.parse()?, minor.parse()?, patch.parse()?))
                 } else if let "SGL" = *extra {
                     Ok(Self::from_branch(Branch::Sgl, major.parse()?, minor.parse()?, patch.parse()?, 1))
