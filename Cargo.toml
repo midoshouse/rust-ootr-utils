@@ -8,7 +8,7 @@ async-proto = { version = "0.16.2", features = ["semver"] }
 enum-iterator = "1.4.0"
 git2 = "0.17"
 itertools = "0.11"
-lazy-regex = "2.4.1"
+lazy-regex = "3"
 pyo3 = { version = "0.19", features = ["auto-initialize"], optional = true }
 semver = "1.0.16"
 serde = { version = "1.0.152", features = ["derive"] }
