@@ -70,6 +70,13 @@ impl Branch {
         }
     }
 
+    fn github_branch_name(&self) -> Option<&'static str> {
+        match self {
+            Self::Sgl => Some("feature/sgl-2023"),
+            Self::Dev | Self::DevBlitz | Self::DevR | Self::DevFenhl => None,
+        }
+    }
+
     pub fn web_name_known_settings(&self) -> &'static str {
         match self {
             Self::Dev => "dev",
@@ -96,6 +103,60 @@ impl Branch {
         } else {
             Some(self.web_name_known_settings())
         }
+    }
+
+    fn dir_parent(&self) -> Result<PathBuf, DirError> {
+        #[cfg(unix)] {
+            let base_path = Path::new("/opt/git/github.com").join(self.github_username()).join("OoT-Randomizer");
+            Ok(if self.github_branch_name().is_some() {
+                base_path.join("branch")
+            } else {
+                base_path
+            })
+        }
+        #[cfg(windows)] {
+            let base_path = UserDirs::new().ok_or(DirError::UserDirs)?.home_dir().join("git").join("github.com").join(self.github_username()).join("OoT-Randomizer");
+            Ok(if self.github_branch_name().is_some() {
+                base_path.join("branch")
+            } else {
+                base_path
+            })
+        }
+    }
+
+    fn dir_name(&self) -> &'static str {
+        if let Some(branch_name) = self.github_branch_name() {
+            branch_name
+        } else {
+            #[cfg(unix)] { "master" }
+            #[cfg(windows)] { "main" }
+        }
+    }
+
+    pub fn dir(&self) -> Result<PathBuf, DirError> {
+        Ok(self.dir_parent()?.join(self.dir_name()))
+    }
+
+    pub async fn clone_repo(&self) -> Result<(), CloneError> {
+        let dir = self.dir()?;
+        if dir.exists() {
+            //TODO hard reset to remote instead?
+            //TODO use git2 or gix instead?
+            Command::new("git").arg("pull").current_dir(dir).check("git").await?;
+        } else {
+            let parent = self.dir_parent()?;
+            fs::create_dir_all(&parent).await?;
+            let mut command = Command::new("git"); //TODO use git2 or gix instead? (git2 doesn't support shallow clones, gix is very low level)
+            command.arg("clone");
+            command.arg(format!("https://github.com/{}/OoT-Randomizer.git", self.github_username()));
+            if let Some(branch_name) = self.github_branch_name() {
+                command.arg(format!("--branch={branch_name}"));
+            }
+            command.arg(self.dir_name());
+            command.current_dir(parent);
+            command.check("git").await?;
+        }
+        Ok(())
     }
 }
 
