@@ -23,6 +23,10 @@ use {
         derive_display_from_serialize,
         derive_fromstr_from_deserialize,
     },
+    crate::camc::{
+        ChestAppearance,
+        ChestTexture,
+    },
 };
 
 fn deserialize_multiworld<'de, D: Deserializer<'de>, T: Deserialize<'de>>(deserializer: D) -> Result<Vec<T>, D::Error> {
@@ -81,6 +85,17 @@ pub struct SpoilerLog {
     pub randomized_settings: RandomizedSettings,
     #[serde(deserialize_with = "deserialize_multiworld")]
     pub locations: Vec<BTreeMap<String, Item>>,
+}
+
+impl SpoilerLog {
+    pub fn midos_house_chests(&self) -> impl Iterator<Item = [ChestAppearance; 4]> + '_ {
+        self.locations.iter().map(|locations| [
+            ChestAppearance::from_item(self, ChestAppearance { texture: ChestTexture::Normal, big: false }, ["KF Midos House Top Left Chest", "KF Midos Top Left Chest", "Mido Chest Top Left"].into_iter().find_map(|name| locations.get(name)).cloned().unwrap_or_else(|| Item { item: format!("Rupees (5)"), model: None, player: NonZeroU8::new(1).unwrap() })),
+            ChestAppearance::from_item(self, ChestAppearance { texture: ChestTexture::Normal, big: false }, ["KF Midos House Top Right Chest", "KF Midos Top Right Chest", "Mido Chest Top Right"].into_iter().find_map(|name| locations.get(name)).cloned().unwrap_or_else(|| Item { item: format!("Rupees (5)"), model: None, player: NonZeroU8::new(1).unwrap() })),
+            ChestAppearance::from_item(self, ChestAppearance { texture: ChestTexture::Normal, big: false }, ["KF Midos House Bottom Left Chest", "KF Midos Bottom Left Chest", "Mido Chest Bottom Left"].into_iter().find_map(|name| locations.get(name)).cloned().unwrap_or_else(|| Item { item: format!("Rupee (1)"), model: None, player: NonZeroU8::new(1).unwrap() })),
+            ChestAppearance::from_item(self, ChestAppearance { texture: ChestTexture::Normal, big: false }, ["KF Midos House Bottom Right Chest", "KF Midos Bottom Right Chest", "Mido Chest Bottom Right"].into_iter().find_map(|name| locations.get(name)).cloned().unwrap_or_else(|| Item { item: format!("Recovery Heart"), model: None, player: NonZeroU8::new(1).unwrap() })),
+        ])
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence, Deserialize, Serialize, Protocol)]
