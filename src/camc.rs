@@ -225,7 +225,12 @@ impl ChestAppearance {
             "Fire Medallion" |
             "Water Medallion" |
             "Shadow Medallion" |
-            "Spirit Medallion" => match camc_kind {
+            "Spirit Medallion" |
+            "Ocarina A Button" |
+            "Ocarina C down Button" |
+            "Ocarina C right Button" |
+            "Ocarina C left Button" |
+            "Ocarina C up Button" => match camc_kind {
                 CorrectChestAppearances::Off => unreachable!(),
                 CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::Normal, big: true },
                 CorrectChestAppearances::Textures => ChestAppearance { texture: ChestTexture::Major, big: vanilla_appearance.big },
@@ -391,7 +396,11 @@ impl ChestAppearance {
             "Bombs (10)" |
             "Bombs (20)" |
             "Deku Seeds (30)" |
-            "Rupee (Treasure Chest Game)" => match camc_kind {
+            "Rupee (Treasure Chest Game)" |
+            "Rupee (Treasure Chest Game) (1)" |
+            "Rupees (Treasure Chest Game) (5)" |
+            "Rupees (Treasure Chest Game) (20)" |
+            "Rupees (Treasure Chest Game) (50)" => match camc_kind {
                 CorrectChestAppearances::Off => unreachable!(),
                 CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::Normal, big: false },
                 CorrectChestAppearances::Textures => ChestAppearance { texture: ChestTexture::Normal, big: vanilla_appearance.big },
