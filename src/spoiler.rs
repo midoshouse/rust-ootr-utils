@@ -345,6 +345,7 @@ enum MinorItemsAsMajorChestCombobox {
 enum MinorItemsAsMajorChestMultiselect {
     Bombchus,
     Shields,
+    Capacity,
 }
 
 /// The `minor_items_as_major_chest` setting is a checkbox on main Dev but a multiselect on dev-fenhl.
@@ -359,19 +360,20 @@ enum JsonMinorItemsAsMajorChest {
 impl From<JsonMinorItemsAsMajorChest> for MinorItemsAsMajorChest {
     fn from(value: JsonMinorItemsAsMajorChest) -> Self {
         match value {
-            JsonMinorItemsAsMajorChest::Checkbox(value) => Self { bombchus: value, shields: value },
+            JsonMinorItemsAsMajorChest::Checkbox(value) => Self { bombchus: value, shields: value, capacity: false },
             JsonMinorItemsAsMajorChest::Combobox(value) => match value {
-                MinorItemsAsMajorChestCombobox::Off => Self { bombchus: false, shields: false },
-                MinorItemsAsMajorChestCombobox::Shields => Self { bombchus: false, shields: true },
-                MinorItemsAsMajorChestCombobox::Bombchus => Self { bombchus: true, shields: false },
-                MinorItemsAsMajorChestCombobox::Both => Self { bombchus: true, shields: true },
+                MinorItemsAsMajorChestCombobox::Off => Self { bombchus: false, shields: false, capacity: false },
+                MinorItemsAsMajorChestCombobox::Shields => Self { bombchus: false, shields: true, capacity: false },
+                MinorItemsAsMajorChestCombobox::Bombchus => Self { bombchus: true, shields: false, capacity: false },
+                MinorItemsAsMajorChestCombobox::Both => Self { bombchus: true, shields: true, capacity: false },
             },
             JsonMinorItemsAsMajorChest::Multiselect(items) => {
-                let mut value = Self { bombchus: false, shields: false };
+                let mut value = Self { bombchus: false, shields: false, capacity: false, };
                 for item in items {
                     match item {
                         MinorItemsAsMajorChestMultiselect::Bombchus => value.bombchus = true,
                         MinorItemsAsMajorChestMultiselect::Shields => value.shields = true,
+                        MinorItemsAsMajorChestMultiselect::Capacity => value.capacity = true,
                     }
                 }
                 value
@@ -385,6 +387,7 @@ impl From<JsonMinorItemsAsMajorChest> for MinorItemsAsMajorChest {
 pub struct MinorItemsAsMajorChest {
     pub bombchus: bool,
     pub shields: bool,
+    pub capacity: bool,
 }
 
 #[derive(Deserialize)]

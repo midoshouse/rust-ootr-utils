@@ -112,6 +112,7 @@ impl ChestAppearance {
         };
         let chus_in_major_chests = settings.free_bombchu_drops || settings.minor_items_as_major_chest.bombchus;
         let shields_in_major_chests = settings.minor_items_as_major_chest.shields;
+        let capacity_in_major_chests = settings.minor_items_as_major_chest.capacity;
         let token_wincon = matches!(settings.bridge, Bridge::Tokens) || matches!(settings.bridge, Bridge::Random) && matches!(randomized_settings.bridge, Bridge::Tokens) || matches!(settings.lacs_condition, LacsCondition::Tokens) || matches!(settings.shuffle_ganon_bosskey, ShuffleGanonBosskey::Tokens);
         let heart_wincon = matches!(settings.bridge, Bridge::Hearts) || matches!(settings.bridge, Bridge::Random) && matches!(randomized_settings.bridge, Bridge::Hearts) || matches!(settings.lacs_condition, LacsCondition::Hearts) || matches!(settings.shuffle_ganon_bosskey, ShuffleGanonBosskey::Hearts);
         if let CorrectChestAppearances::Off = camc_kind {
@@ -252,6 +253,7 @@ impl ChestAppearance {
             "Small Key (Gerudo Fortress)" |
             "Small Key (Thieves Hideout)" |
             "Small Key (Ganons Castle)" |
+            "Small Key (Treasure Chest Game)" |
             "Small Key Ring (Forest Temple)" |
             "Small Key Ring (Fire Temple)" |
             "Small Key Ring (Water Temple)" |
@@ -261,6 +263,7 @@ impl ChestAppearance {
             "Small Key Ring (Gerudo Training Ground)" |
             "Small Key Ring (Thieves Hideout)" |
             "Small Key Ring (Ganons Castle)" |
+            "Small Key Ring (Treasure Chest Game)" |
             "Silver Rupee (Dodongos Cavern Staircase)" |
             "Silver Rupee (Ice Cavern Spinning Scythe)" |
             "Silver Rupee (Ice Cavern Push Block)" |
@@ -321,6 +324,8 @@ impl ChestAppearance {
             },
             "Deku Shield" |
             "Hylian Shield" => ChestAppearance { texture: if shields_in_major_chests { ChestTexture::Major } else { ChestTexture::Normal }, big: shields_in_major_chests },
+            "Deku Stick Capacity" |
+            "Deku Nut Capacity" => ChestAppearance { texture: if capacity_in_major_chests { ChestTexture::Major } else { ChestTexture::Normal }, big: capacity_in_major_chests },
             "Gold Skulltula Token" => match camc_kind {
                 CorrectChestAppearances::Off => unreachable!(),
                 CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::Normal, big: token_wincon },
@@ -386,9 +391,7 @@ impl ChestAppearance {
             "Bombs (10)" |
             "Bombs (20)" |
             "Deku Seeds (30)" |
-            "Rupee (Treasure Chest Game)" |
-            "Deku Stick Capacity" |
-            "Deku Nut Capacity" => match camc_kind {
+            "Rupee (Treasure Chest Game)" => match camc_kind {
                 CorrectChestAppearances::Off => unreachable!(),
                 CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::Normal, big: false },
                 CorrectChestAppearances::Textures => ChestAppearance { texture: ChestTexture::Normal, big: vanilla_appearance.big },
