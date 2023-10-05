@@ -101,7 +101,7 @@ impl SpoilerLog {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence, Deserialize, Serialize, Protocol)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Sequence, Deserialize, Serialize, Protocol)]
 #[cfg_attr(feature = "sqlx", derive(sqlx::Type), sqlx(type_name = "hash_icon"))]
 pub enum HashIcon {
     #[serde(rename = "Deku Stick")]
