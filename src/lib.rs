@@ -4,6 +4,7 @@
 use {
     std::{
         fmt,
+        num::NonZeroU8,
         path::{
             Path,
             PathBuf,
@@ -17,6 +18,7 @@ use {
     },
     itertools::Itertools as _,
     lazy_regex::regex_captures,
+    serde::de::DeserializeOwned,
     serde_plain::derive_deserialize_from_fromstr,
     tokio::process::Command,
     wheel::{
@@ -26,20 +28,9 @@ use {
 };
 #[cfg(unix)] use xdg::BaseDirectories;
 #[cfg(windows)] use directories::UserDirs;
-#[cfg(feature = "pyo3")] use {
-    pyo3::{
-        exceptions::*,
-        prelude::*,
-        types::PyList,
-    },
-    crate::lazy::PyLazy,
-};
 
 pub mod camc;
-#[cfg(feature = "pyo3")] mod lazy;
 pub mod spoiler;
-
-#[cfg(feature = "pyo3")] static MODULE_SEARCH_PATH: PyLazy<PyResult<Vec<String>>> = PyLazy::new(|py| py.import("sys")?.getattr("path")?.extract());
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Branch {
@@ -178,16 +169,6 @@ pub enum DirError {
     #[cfg(windows)]
     #[error("failed to access user directories")]
     UserDirs,
-}
-
-#[cfg(feature = "pyo3")] impl From<DirError> for PyErr {
-    fn from(e: DirError) -> Self {
-        match e {
-            #[cfg(unix)] DirError::Xdg(e) => tokio::io::Error::from(e).into(),
-            #[cfg(unix)] DirError::DataPath => PyFileNotFoundError::new_err(e.to_string()),
-            #[cfg(windows)] DirError::UserDirs => PyFileNotFoundError::new_err(e.to_string()),
-        }
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -337,15 +318,8 @@ impl Version {
         Ok(())
     }
 
-    #[cfg(feature = "pyo3")]
-    pub fn py_modules<'p>(&self, py: Python<'p>) -> PyResult<PyModules<'p>> {
-        let mut new_path = match MODULE_SEARCH_PATH.get(py) {
-            Ok(path) => path.clone(),
-            Err(e) => return Err(e.clone_ref(py)),
-        };
-        new_path.push(self.dir()?.into_os_string().into_string().expect("non-UTF-8 randomizer path"));
-        py.import("sys")?.getattr("path")?.downcast::<PyList>()?.set_slice(0, py.import("sys")?.getattr("path")?.downcast::<PyList>()?.len(), new_path.into_py(py).as_ref(py))?;
-        Ok(PyModules { version: self.clone(), py })
+    pub fn py_modules(&self) -> Result<PyModules, DirError> {
+        Ok(PyModules { version: self.clone(), path: self.dir()? })
     }
 }
 
@@ -410,53 +384,42 @@ impl fmt::Display for Version {
     }
 }
 
-#[cfg(feature = "pyo3")]
-#[derive(Clone)]
-pub struct PyModules<'p> {
-    py: Python<'p>,
-    version: Version,
+#[derive(Debug, thiserror::Error)]
+pub enum PyJsonError {
+    #[error(transparent)] Json(#[from] serde_json::Error),
+    #[error(transparent)] Wheel(#[from] wheel::Error),
 }
 
-#[cfg(feature = "pyo3")]
-impl PyModules<'_> {
-    pub fn py(&self) -> Python<'_> { self.py }
+#[derive(Clone)]
+pub struct PyModules {
+    version: Version,
+    path: PathBuf,
+}
+
+impl PyModules {
     pub fn version(&self) -> &Version { &self.version }
 
-    pub fn override_key(&self, location: &str, item: &str) -> PyResult<Option<u32>> {
-        let mod_location = self.py.import("Location")?;
-        let location = mod_location.getattr("LocationFactory")?.call1((location,))?;
-        let default = location.getattr("default")?;
-        let mod_item = self.py.import("Item")?;
-        let item = mod_item.getattr("ItemFactory")?.call1((item,))?;
-        Ok(if let (Some(scene), false) = (location.getattr("scene")?.extract()?, default.is_none()) {
-            let (kind, default) = match location.getattr("type")?.extract()? {
-                "NPC" | "Scrub" | "BossHeart" => (0, default.extract::<u16>()?),
-                "Chest" => (1, default.extract::<u16>()? & 0x1f),
-                "Freestanding" | "Pot" | "Crate" | "FlyingPot" | "SmallCrate" | "RupeeTower" | "Beehive" | "SilverRupee" => {
-                    let (room, scene_setup, flag) = if default.is_instance_of::<PyList>() { default.get_item(0)? } else { default }.extract::<(u16, u16, u16)>()?;
-                    (6, room << 8 + scene_setup << 14 + flag)
-                }
-                "Collectable" | "ActorOverride" => (2, default.extract()?),
-                "GS Token" => (3, default.extract()?),
-                "Shop" if item.getattr("type")?.extract::<&str>()? != "Shop" => (0, default.extract()?),
-                //TODO MaskShop location support
-                "GrottoScrub" if item.getattr("type")?.extract::<&str>()? != "Shop" => (4, default.extract()?),
-                "Song" | "Cutscene" => (5, default.extract()?),
-                _ => return Ok(None),
-            };
-            Some(if self.version.base < semver::Version::new(6, 9, 1) {
-                u32::from_be_bytes([0, scene, kind, default as u8])
-            } else {
-                let [default_hi, default_lo] = default.to_be_bytes();
-                u32::from_be_bytes([scene, kind, default_hi, default_lo])
-            })
-        } else {
-            None
-        })
+    async fn py_json<T: DeserializeOwned>(&self, code: &str) -> Result<T, PyJsonError> {
+        let output = Command::new("python3")
+            .arg("-c")
+            .arg(code)
+            .current_dir(&self.path)
+            .check("python3").await?;
+        Ok(serde_json::from_slice(&output.stdout)?)
     }
 
-    pub fn item_kind(&self, item: &str) -> PyResult<Option<u16>> {
-        let item_list = self.py.import("ItemList")?;
-        Ok(item_list.getattr("item_table")?.call_method1("get", (item,))?.extract::<Option<(&PyAny, &PyAny, _, &PyAny)>>()?.map(|(_, _, kind, _)| kind))
+    pub async fn override_entry(&self, world: NonZeroU8, location: &str, item: &str) -> Result<[u64; 2], PyJsonError> {
+        let [k0, k1, k2, k3, k4, k5, k6, k7, v0, v1, v2, v3, v4, v5, v6, v7] = self.py_json(&format!("
+import Item, Location, Patches
+
+class World:
+    def __init__(self):
+        self.id = {world}
+
+loc = Location.LocationFactory({location:?})
+loc.item = Item.ItemFactory({item:?}, World())
+print([int(byte) for byte in Patches.override_struct.pack(*Patches.get_override_entry(loc))])
+        ")).await?;
+        Ok([u64::from_be_bytes([k0, k1, k2, k3, k4, k5, k6, k7]), u64::from_be_bytes([v0, v1, v2, v3, v4, v5, v6, v7])])
     }
 }
