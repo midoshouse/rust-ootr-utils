@@ -399,7 +399,7 @@ pub struct PyModules {
 impl PyModules {
     pub fn version(&self) -> &Version { &self.version }
 
-    async fn py_json<T: DeserializeOwned>(&self, code: &str) -> Result<T, PyJsonError> {
+    pub async fn py_json<T: DeserializeOwned>(&self, code: &str) -> Result<T, PyJsonError> {
         let output = Command::new("python3")
             .arg("-c")
             .arg(code)
@@ -418,7 +418,7 @@ class World:
 
 loc = Location.LocationFactory({location:?})
 loc.item = Item.ItemFactory({item:?}, World())
-print([int(byte) for byte in Patches.override_struct.pack(*Patches.get_override_entry(loc))])
+print(list(Patches.override_struct.pack(*Patches.get_override_entry(loc))))
         ")).await?;
         Ok((u64::from_be_bytes([k0, k1, k2, k3, k4, k5, k6, k7]), u16::from_be_bytes([v0, v1])))
     }
