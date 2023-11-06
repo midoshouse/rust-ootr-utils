@@ -408,9 +408,9 @@ impl PyModules {
         Ok(serde_json::from_slice(&output.stdout)?)
     }
 
-    pub async fn override_entry(&self, world: NonZeroU8, location: &str, item: &str) -> Result<(u64, u16), PyJsonError> {
-        let [k0, k1, k2, k3, k4, k5, k6, k7, v0, v1, _, _, _, _, _, _] = self.py_json(&format!("
-import Item, Location, Patches
+    pub async fn override_entry(&self, world: NonZeroU8, location: &str, item: &str) -> Result<Option<(u64, u16)>, PyJsonError> {
+        Ok(self.py_json::<Option<[u8; 16]>>(&format!("
+import json, Item, Location, Patches
 
 class World:
     def __init__(self):
@@ -418,8 +418,11 @@ class World:
 
 loc = Location.LocationFactory({location:?})
 loc.item = Item.ItemFactory({item:?}, World())
-print(list(Patches.override_struct.pack(*Patches.get_override_entry(loc))))
-        ")).await?;
-        Ok((u64::from_be_bytes([k0, k1, k2, k3, k4, k5, k6, k7]), u16::from_be_bytes([v0, v1])))
+entry = Patches.get_override_entry(loc)
+if entry is None:
+    print(json.dumps(None))
+else:
+    print(json.dumps(list(Patches.override_struct.pack(*entry))))
+        ")).await?.map(|[k0, k1, k2, k3, k4, k5, k6, k7, v0, v1, _, _, _, _, _, _]| (u64::from_be_bytes([k0, k1, k2, k3, k4, k5, k6, k7]), u16::from_be_bytes([v0, v1]))))
     }
 }
