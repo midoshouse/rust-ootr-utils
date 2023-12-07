@@ -334,7 +334,7 @@ pub enum VersionParseError {
     Words,
 }
 
-impl From<VersionParseError> for async_proto::ReadError {
+impl From<VersionParseError> for async_proto::ReadErrorKind {
     fn from(e: VersionParseError) -> Self {
         Self::Custom(e.to_string())
     }
