@@ -318,8 +318,12 @@ impl Version {
         Ok(())
     }
 
-    pub fn py_modules(&self) -> Result<PyModules, DirError> {
-        Ok(PyModules { version: self.clone(), path: self.dir()? })
+    pub fn py_modules(&self, python: impl AsRef<Path>) -> Result<PyModules, DirError> {
+        Ok(PyModules {
+            python: python.as_ref().to_owned(),
+            version: self.clone(),
+            path: self.dir()?,
+        })
     }
 }
 
@@ -392,6 +396,7 @@ pub enum PyJsonError {
 
 #[derive(Clone)]
 pub struct PyModules {
+    python: PathBuf,
     version: Version,
     path: PathBuf,
 }
@@ -400,11 +405,11 @@ impl PyModules {
     pub fn version(&self) -> &Version { &self.version }
 
     pub async fn py_json<T: DeserializeOwned>(&self, code: &str) -> Result<T, PyJsonError> {
-        let output = Command::new("python3")
+        let output = Command::new(&self.python)
             .arg("-c")
             .arg(code)
             .current_dir(&self.path)
-            .check("python3").await?;
+            .check(self.python.display().to_string()).await?;
         Ok(serde_json::from_slice(&output.stdout)?)
     }
 
