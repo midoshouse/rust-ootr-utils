@@ -4,7 +4,7 @@ version = "0.2.5"
 edition = "2021"
 
 [dependencies]
-async-proto = { git = "https://github.com/fenhl/async-proto", branch = "error-ctx", features = ["semver"] }
+async-proto = { version = "0.17.0", features = ["semver"] }
 enum-iterator = "1.4.0"
 git2 = "0.18"
 itertools = "0.12"
@@ -16,7 +16,7 @@ serde_plain = "1.0.1"
 sqlx = { version = "0.7", optional = true, features = ["runtime-tokio-rustls"] }
 thiserror = "1.0.38"
 tokio = { version = "1.25.0", features = ["parking_lot", "process"] }
-wheel = { git = "https://github.com/fenhl/wheel", branch = "async-proto-error-ctx" }
+wheel = { git = "https://github.com/fenhl/wheel", branch = "main" }
 
 [target."cfg(unix)".dependencies]
 xdg = "2.4.1"
