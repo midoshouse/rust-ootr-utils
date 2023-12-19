@@ -413,16 +413,22 @@ impl PyModules {
         Ok(serde_json::from_slice(&output.stdout)?)
     }
 
-    pub async fn override_entry(&self, world: NonZeroU8, location: &str, item: &str) -> Result<Option<(u64, u16)>, PyJsonError> {
+    pub async fn override_entry(&self, source_world: NonZeroU8, location: &str, target_world: NonZeroU8, item: &str) -> Result<Option<(u64, u16)>, PyJsonError> {
         Ok(self.py_json::<Option<[u8; 16]>>(&format!("
 import json, Item, Location, Patches
 
-class World:
+class Settings:
     def __init__(self):
-        self.id = {world}
+        self.shuffle_child_trade = True # assume shuffled child trade so a MaskShop location listed in a spoiler log will be considered shuffled
+
+class World:
+    def __init__(self, id):
+        self.id = id
+        self.settings = Settings()
 
 loc = Location.LocationFactory({location:?})
-loc.item = Item.ItemFactory({item:?}, World())
+loc.world = World({source_world})
+loc.item = Item.ItemFactory({item:?}, World({target_world}))
 entry = Patches.get_override_entry(loc)
 if entry is None:
     print(json.dumps(None))
