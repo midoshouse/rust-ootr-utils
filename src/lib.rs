@@ -38,6 +38,7 @@ pub enum Branch {
     DevBlitz,
     DevFenhl,
     DevR,
+    DevRob,
     Sgl,
 }
 
@@ -45,6 +46,7 @@ impl Branch {
     pub fn from_id(branch_identifier: u8) -> Option<Self> {
         match branch_identifier {
             0x00 | 0x01 => Some(Self::Dev),
+            0x45 => Some(Self::DevRob),
             0x52 => Some(Self::DevR),
             0x69 => Some(Self::DevBlitz),
             0xfe => Some(Self::DevFenhl),
@@ -58,13 +60,14 @@ impl Branch {
             Self::DevBlitz | Self::Sgl => "Elagatua",
             Self::DevR => "Roman971",
             Self::DevFenhl => "fenhl",
+            Self::DevRob => "rrealmuto",
         }
     }
 
     fn github_branch_name(&self) -> Option<&'static str> {
         match self {
             Self::Sgl => Some("feature/sgl-2023"),
-            Self::Dev | Self::DevBlitz | Self::DevR | Self::DevFenhl => None,
+            Self::Dev | Self::DevBlitz | Self::DevR | Self::DevRob | Self::DevFenhl => None,
         }
     }
 
@@ -74,6 +77,7 @@ impl Branch {
             Self::DevBlitz => "devTFBlitz",
             Self::DevFenhl => "devFenhl",
             Self::DevR => "devR",
+            Self::DevRob => "devrreal",
             Self::Sgl => "devSGLive22",
         }
     }
@@ -84,6 +88,7 @@ impl Branch {
             Self::DevBlitz => None,
             Self::DevFenhl => Some("devFenhlRSL"),
             Self::DevR => Some("devRSL"),
+            Self::DevRob => None,
             Self::Sgl => None,
         }
     }
@@ -285,11 +290,15 @@ impl Version {
                     command.arg(format!("--branch={}-fenhl.{}", self.base, self.supplementary.unwrap()));
                     false
                 }
-                Branch::DevBlitz | Branch::DevR => true,
+                Branch::DevRob => {
+                    command.arg(format!("--branch={}.Rob-{}", self.base, self.supplementary.unwrap()));
+                    false
+                }
                 Branch::Sgl => {
                     command.arg("--branch=feature/sgl-2023");
                     false // this branch is not versioned correctly
                 }
+                Branch::DevBlitz | Branch::DevR => true,
             };
             if !bisect {
                 command.arg("--depth=1");
@@ -365,6 +374,8 @@ impl FromStr for Version {
                     Ok(Self::from_branch(Branch::DevFenhl, major.parse()?, minor.parse()?, patch.parse()?, supplementary.parse()?))
                 } else if let Some((_, supplementary)) = regex_captures!("^R-([0-9]+)$", extra) {
                     Ok(Self::from_branch(Branch::DevR, major.parse()?, minor.parse()?, patch.parse()?, supplementary.parse()?))
+                } else if let Some((_, supplementary)) = regex_captures!("^Rob-([0-9]+)$", extra) {
+                    Ok(Self::from_branch(Branch::DevRob, major.parse()?, minor.parse()?, patch.parse()?, supplementary.parse()?))
                 } else {
                     Err(VersionParseError::Branch)
                 }
@@ -383,6 +394,7 @@ impl fmt::Display for Version {
             Branch::DevBlitz => write!(f, "{} blitz-{}", self.base, self.supplementary.unwrap()),
             Branch::DevFenhl => write!(f, "{} Fenhl-{}", self.base, self.supplementary.unwrap()),
             Branch::DevR => write!(f, "{} R-{}", self.base, self.supplementary.unwrap()),
+            Branch::DevRob => write!(f, "{} Rob-{}", self.base, self.supplementary.unwrap()),
             Branch::Sgl => write!(f, "{} SGL", self.base),
         }
     }
