@@ -401,9 +401,16 @@ impl fmt::Display for Version {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum PyJsonError {
+pub enum PyJsonErrorKind {
     #[error(transparent)] Json(#[from] serde_json::Error),
     #[error(transparent)] Wheel(#[from] wheel::Error),
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("error from randomizer version {version}: {source}")]
+pub struct PyJsonError {
+    pub version: Version,
+    pub source: PyJsonErrorKind,
 }
 
 #[derive(Clone)]
@@ -421,8 +428,14 @@ impl PyModules {
             .arg("-c")
             .arg(code)
             .current_dir(&self.path)
-            .check(self.python.display().to_string()).await?;
-        Ok(serde_json::from_slice(&output.stdout)?)
+            .check(self.python.display().to_string()).await.map_err(|e| PyJsonError {
+                version: self.version.clone(),
+                source: e.into(),
+            })?;
+        Ok(serde_json::from_slice(&output.stdout).map_err(|e| PyJsonError {
+            version: self.version.clone(),
+            source: e.into(),
+        })?)
     }
 
     pub async fn override_entry(&self, source_world: NonZeroU8, location: &str, target_world: NonZeroU8, item: &str) -> Result<Option<(u64, u16)>, PyJsonError> {
