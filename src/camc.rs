@@ -1,4 +1,5 @@
 use {
+    std::num::NonZeroU8,
     serde::{
         Deserialize,
         Serialize,
@@ -104,19 +105,19 @@ pub struct ChestAppearance {
 }
 
 impl ChestAppearance {
-    pub fn from_item(SpoilerLog { version, settings, randomized_settings, .. }: &SpoilerLog, mut vanilla_appearance: ChestAppearance, item: Item) -> Self {
+    pub fn from_item(SpoilerLog { version, settings, randomized_settings, .. }: &SpoilerLog, source_world: NonZeroU8, mut vanilla_appearance: ChestAppearance, item: Item) -> Self {
         let camc_version = Version::from_rando_version(&version);
         let camc_kind = match camc_version {
-            Version::Classic => if settings.correct_chest_sizes { CorrectChestAppearances::Classic } else { CorrectChestAppearances::Off },
-            Version::Initial | Version::Pr1500 | Version::Pr1751 | Version::Pr1908 => settings.correct_chest_appearances.unwrap_or_default(),
+            Version::Classic => if settings.get(usize::from(source_world.get())).unwrap_or_else(|| &settings[0]).correct_chest_sizes { CorrectChestAppearances::Classic } else { CorrectChestAppearances::Off },
+            Version::Initial | Version::Pr1500 | Version::Pr1751 | Version::Pr1908 => settings.get(usize::from(source_world.get())).unwrap_or_else(|| &settings[0]).correct_chest_appearances.unwrap_or_default(),
         };
-        let chus_in_major_chests = settings.free_bombchu_drops || settings.minor_items_as_major_chest.bombchus;
-        let shields_in_major_chests = settings.minor_items_as_major_chest.shields;
-        let capacity_in_major_chests = settings.minor_items_as_major_chest.capacity;
-        let token_wincon = matches!(settings.bridge, Bridge::Tokens) || matches!(settings.bridge, Bridge::Random) && matches!(randomized_settings.bridge, Bridge::Tokens) || matches!(settings.lacs_condition, LacsCondition::Tokens) || matches!(settings.shuffle_ganon_bosskey, ShuffleGanonBosskey::Tokens);
-        let heart_wincon = matches!(settings.bridge, Bridge::Hearts) || matches!(settings.bridge, Bridge::Random) && matches!(randomized_settings.bridge, Bridge::Hearts) || matches!(settings.lacs_condition, LacsCondition::Hearts) || matches!(settings.shuffle_ganon_bosskey, ShuffleGanonBosskey::Hearts);
+        let chus_in_major_chests = settings.get(usize::from(item.player.get())).unwrap_or_else(|| &settings[0]).free_bombchu_drops || settings.get(usize::from(item.player.get())).unwrap_or_else(|| &settings[0]).minor_items_as_major_chest.bombchus;
+        let shields_in_major_chests = settings.get(usize::from(item.player.get())).unwrap_or_else(|| &settings[0]).minor_items_as_major_chest.shields;
+        let capacity_in_major_chests = settings.get(usize::from(item.player.get())).unwrap_or_else(|| &settings[0]).minor_items_as_major_chest.capacity;
+        let token_wincon = matches!(settings.get(usize::from(item.player.get())).unwrap_or_else(|| &settings[0]).bridge, Bridge::Tokens) || matches!(settings.get(usize::from(item.player.get())).unwrap_or_else(|| &settings[0]).bridge, Bridge::Random) && matches!(randomized_settings.get(usize::from(item.player.get())).unwrap_or_else(|| &randomized_settings[0]).bridge, Bridge::Tokens) || matches!(settings.get(usize::from(item.player.get())).unwrap_or_else(|| &settings[0]).lacs_condition, LacsCondition::Tokens) || matches!(settings.get(usize::from(item.player.get())).unwrap_or_else(|| &settings[0]).shuffle_ganon_bosskey, ShuffleGanonBosskey::Tokens);
+        let heart_wincon = matches!(settings.get(usize::from(item.player.get())).unwrap_or_else(|| &settings[0]).bridge, Bridge::Hearts) || matches!(settings.get(usize::from(item.player.get())).unwrap_or_else(|| &settings[0]).bridge, Bridge::Random) && matches!(randomized_settings.get(usize::from(item.player.get())).unwrap_or_else(|| &randomized_settings[0]).bridge, Bridge::Hearts) || matches!(settings.get(usize::from(item.player.get())).unwrap_or_else(|| &settings[0]).lacs_condition, LacsCondition::Hearts) || matches!(settings.get(usize::from(item.player.get())).unwrap_or_else(|| &settings[0]).shuffle_ganon_bosskey, ShuffleGanonBosskey::Hearts);
         if let CorrectChestAppearances::Off = camc_kind {
-            if settings.invisible_chests {
+            if settings.get(usize::from(source_world.get())).unwrap_or_else(|| &settings[0]).invisible_chests {
                 vanilla_appearance.texture = ChestTexture::Invisible;
             }
             return vanilla_appearance
@@ -415,7 +416,7 @@ impl ChestAppearance {
             Version::Pr1751 | Version::Pr1908 => if let ChestTexture::SmallKeyOld = appearance.texture { appearance.texture = ChestTexture::SmallKey1751 },
         }
         //TODO support for incorrect_chest_appearances setting
-        if settings.invisible_chests {
+        if settings.get(usize::from(source_world.get())).unwrap_or_else(|| &settings[0]).invisible_chests {
             appearance.texture = ChestTexture::Invisible;
         }
         appearance
