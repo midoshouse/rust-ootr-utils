@@ -438,13 +438,22 @@ impl PyModules {
         })?)
     }
 
-    pub async fn override_entry(&self, source_world: NonZeroU8, location: &str, target_world: NonZeroU8, item: &str) -> Result<Option<(u64, u16)>, PyJsonError> {
+    pub async fn override_entry(&self, source_world: NonZeroU8, location: &str, target_world: NonZeroU8, item: &str, keyring_give_bk: bool) -> Result<Option<(u64, u16)>, PyJsonError> {
         Ok(self.py_json::<Option<[u8; 16]>>(&format!("
 import json, Item, Location, Patches
 
 class Settings:
     def __init__(self):
         self.shuffle_child_trade = True # assume shuffled child trade so a MaskShop location listed in a spoiler log will be considered shuffled
+
+        self.keyring_give_bk = {} # checked on dev-fenhl to determine the type of keyring to send, which affects behavior
+
+        # these settings are only checked on dev-fenhl to determine chest appearance, so the actual value doesn't matter
+        self.bridge = 'vanilla'
+        self.free_bombchu_drops = false
+        self.lacs_condition = 'vanilla'
+        self.minor_items_as_major_chest = []
+        self.tokensanity = 'off'
 
 class World:
     def __init__(self, id):
@@ -459,6 +468,6 @@ if entry is None:
     print(json.dumps(None))
 else:
     print(json.dumps(list(Patches.override_struct.pack(*entry))))
-        ")).await?.map(|[k0, k1, k2, k3, k4, k5, k6, k7, v0, v1, _, _, _, _, _, _]| (u64::from_be_bytes([k0, k1, k2, k3, k4, k5, k6, k7]), u16::from_be_bytes([v0, v1]))))
+        ", if keyring_give_bk { "True" } else { "False" })).await?.map(|[k0, k1, k2, k3, k4, k5, k6, k7, v0, v1, _, _, _, _, _, _]| (u64::from_be_bytes([k0, k1, k2, k3, k4, k5, k6, k7]), u16::from_be_bytes([v0, v1]))))
     }
 }
