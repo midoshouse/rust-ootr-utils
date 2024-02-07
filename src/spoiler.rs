@@ -266,13 +266,15 @@ pub struct Settings {
     #[serde(default = "make_one")]
     pub world_count: NonZeroU8,
     #[serde(default)]
+    pub lacs_condition: LacsCondition,
+    #[serde(default)]
     pub bridge: Bridge,
-    #[serde(default, alias = "bombchus_in_logic")]
-    pub free_bombchu_drops: bool,
     #[serde(default)]
     pub shuffle_ganon_bosskey: ShuffleGanonBosskey,
     #[serde(default)]
-    pub lacs_condition: LacsCondition,
+    pub keyring_give_bk: bool,
+    #[serde(default, alias = "bombchus_in_logic")]
+    pub free_bombchu_drops: bool,
     #[serde(default)]
     pub correct_chest_sizes: bool,
     pub correct_chest_appearances: Option<CorrectChestAppearances>,
