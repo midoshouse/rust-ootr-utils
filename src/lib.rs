@@ -290,10 +290,9 @@ impl Version {
                     command.arg(format!("--branch={}-fenhl.{}", self.base, self.supplementary.unwrap()));
                     false
                 }
-                Branch::DevRob => {
-                    command.arg(format!("--branch={}.Rob-{}", self.base, self.supplementary.unwrap()));
-                    false
-                }
+                // Dev-Rob does have tags for some versions, but they're often missing so it's safer to use the bisection strategy.
+                // Though it might be worth trying to clone the tag first and only fall back to bisecting if that fails.
+                Branch::DevRob => true,
                 Branch::Sgl => {
                     command.arg("--branch=feature/sgl-2023");
                     false // this branch is not versioned correctly
