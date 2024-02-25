@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 async-proto = { version = "0.18", features = ["semver"] }
-enum-iterator = "1.4.0"
+enum-iterator = "2"
 git2 = "0.18"
 itertools = "0.12"
 lazy-regex = "3"
