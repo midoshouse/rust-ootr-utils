@@ -449,7 +449,7 @@ class Settings:
 
         # these settings are only checked on dev-fenhl to determine chest appearance, so the actual value doesn't matter
         self.bridge = 'vanilla'
-        self.free_bombchu_drops = false
+        self.free_bombchu_drops = False
         self.lacs_condition = 'vanilla'
         self.minor_items_as_major_chest = []
         self.tokensanity = 'off'
