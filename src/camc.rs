@@ -4,13 +4,16 @@ use {
         Deserialize,
         Serialize,
     },
-    crate::spoiler::{
-        Bridge,
-        CorrectChestAppearances,
-        Item,
-        LacsCondition,
-        ShuffleGanonBosskey,
-        SpoilerLog,
+    crate::{
+        Branch,
+        spoiler::{
+            Bridge,
+            CorrectChestAppearances,
+            Item,
+            LacsCondition,
+            ShuffleGanonBosskey,
+            SpoilerLog,
+        },
     },
 };
 
@@ -27,11 +30,15 @@ pub enum Version {
     Pr1751,
     /// The addition of heart chest textures from [PR #1908](https://github.com/OoTRandomizer/OoT-Randomizer/pull/1908), [version 7.1.76](https://github.com/OoTRandomizer/OoT-Randomizer/tree/9e823509c41cbcd3f53081cf9d99ceedc96036e7)
     Pr1908,
+    /// The addition of bombchu chest textures on [the Triforce Blitz branch](crate::Branch::DevBlitz) starting with [version 8.0.22 blitz-48](https://github.com/Elagatua/OoT-Randomizer/tree/18848dfc94a596bf58d88d542b6561b7104c5138)
+    TfbS3,
 }
 
 impl Version {
     pub fn from_rando_version(rando_version: &crate::Version) -> Self {
-        if *rando_version.base() >= semver::Version::new(7, 1, 76) {
+        if rando_version.branch() == Branch::DevBlitz && *rando_version.base() >= semver::Version::new(8, 0, 22) && rando_version.supplementary().is_some_and(|supplementary| supplementary >= 48) {
+            Self::TfbS3
+        } else if *rando_version.base() >= semver::Version::new(7, 1, 76) {
             Self::Pr1908
         } else if *rando_version.base() >= semver::Version::new(6, 2, 233) {
             Self::Pr1751
@@ -59,6 +66,7 @@ pub enum ChestTexture {
     Token,
     Invisible,
     Heart,
+    Bombchu,
 }
 
 impl TryFrom<char> for ChestTexture {
@@ -76,6 +84,7 @@ impl TryFrom<char> for ChestTexture {
             's' => Ok(Self::Token),
             'd' => Ok(Self::Invisible),
             'h' => Ok(Self::Heart),
+            'c' => Ok(Self::Bombchu),
             _ => Err(c),
         }
     }
@@ -94,6 +103,7 @@ impl From<ChestTexture> for char {
             ChestTexture::Token => 's',
             ChestTexture::Invisible => 'd',
             ChestTexture::Heart => 'h',
+            ChestTexture::Bombchu => 'c',
         }
     }
 }
@@ -109,8 +119,9 @@ impl ChestAppearance {
         let camc_version = Version::from_rando_version(&version);
         let camc_kind = match camc_version {
             Version::Classic => if settings.get(usize::from(source_world.get() - 1)).unwrap_or_else(|| &settings[0]).correct_chest_sizes { CorrectChestAppearances::Classic } else { CorrectChestAppearances::Off },
-            Version::Initial | Version::Pr1500 | Version::Pr1751 | Version::Pr1908 => settings.get(usize::from(source_world.get() - 1)).unwrap_or_else(|| &settings[0]).correct_chest_appearances.unwrap_or_default(),
+            Version::Initial | Version::Pr1500 | Version::Pr1751 | Version::Pr1908 | Version::TfbS3 => settings.get(usize::from(source_world.get() - 1)).unwrap_or_else(|| &settings[0]).correct_chest_appearances.unwrap_or_default(),
         };
+        //TODO support for the new setting(s?) affecting chest appearance on DevBlitz, e.g. “Minor Items use Chext Texture” (no source code available yet?)
         let chus_in_major_chests = settings.get(usize::from(item.player.get() - 1)).unwrap_or_else(|| &settings[0]).free_bombchu_drops || settings.get(usize::from(item.player.get() - 1)).unwrap_or_else(|| &settings[0]).minor_items_as_major_chest.bombchus;
         let shields_in_major_chests = settings.get(usize::from(item.player.get() - 1)).unwrap_or_else(|| &settings[0]).minor_items_as_major_chest.shields;
         let capacity_in_major_chests = settings.get(usize::from(item.player.get() - 1)).unwrap_or_else(|| &settings[0]).minor_items_as_major_chest.capacity;
@@ -322,11 +333,16 @@ impl ChestAppearance {
             "Ice Trap" => unreachable!(),
             "Bombchus (5)" |
             "Bombchus (10)" |
-            "Bombchus (20)" => match camc_kind {
-                CorrectChestAppearances::Off => unreachable!(),
-                CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::Normal, big: chus_in_major_chests },
-                CorrectChestAppearances::Textures => ChestAppearance { texture: if chus_in_major_chests { ChestTexture::Major } else { ChestTexture::Normal }, big: vanilla_appearance.big },
-                CorrectChestAppearances::Both => ChestAppearance { texture: if chus_in_major_chests { ChestTexture::Major } else { ChestTexture::Normal }, big: chus_in_major_chests },
+            "Bombchus (20)" => if let Version::TfbS3 = camc_version {
+                //TODO is this controlled by a setting?
+                ChestAppearance { texture: ChestTexture::Bombchu, big: false }
+            } else {
+                match camc_kind {
+                    CorrectChestAppearances::Off => unreachable!(),
+                    CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::Normal, big: chus_in_major_chests },
+                    CorrectChestAppearances::Textures => ChestAppearance { texture: if chus_in_major_chests { ChestTexture::Major } else { ChestTexture::Normal }, big: vanilla_appearance.big },
+                    CorrectChestAppearances::Both => ChestAppearance { texture: if chus_in_major_chests { ChestTexture::Major } else { ChestTexture::Normal }, big: chus_in_major_chests },
+                }
             },
             "Deku Shield" |
             "Hylian Shield" => ChestAppearance { texture: if shields_in_major_chests { ChestTexture::Major } else { ChestTexture::Normal }, big: shields_in_major_chests },
@@ -340,7 +356,10 @@ impl ChestAppearance {
             },
             "Heart Container" |
             "Piece of Heart" |
-            "Piece of Heart (Treasure Chest Game)" => if camc_version >= Version::Pr1908 {
+            "Piece of Heart (Treasure Chest Game)" => if let Version::TfbS3 = camc_version {
+                //TODO is this controlled by a setting?
+                ChestAppearance { texture: ChestTexture::Normal, big: false }
+            } else if camc_version >= Version::Pr1908 {
                 match camc_kind {
                     CorrectChestAppearances::Off => unreachable!(),
                     CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::Normal, big: heart_wincon },
@@ -413,7 +432,7 @@ impl ChestAppearance {
             Version::Classic => {}
             Version::Initial => if let ChestTexture::Major = appearance.texture { appearance.texture = ChestTexture::OldMajor },
             Version::Pr1500 => if let ChestTexture::SmallKeyOld = appearance.texture { appearance.texture = ChestTexture::SmallKey1500 },
-            Version::Pr1751 | Version::Pr1908 => if let ChestTexture::SmallKeyOld = appearance.texture { appearance.texture = ChestTexture::SmallKey1751 },
+            Version::Pr1751 | Version::Pr1908 | Version::TfbS3 => if let ChestTexture::SmallKeyOld = appearance.texture { appearance.texture = ChestTexture::SmallKey1751 },
         }
         //TODO support for incorrect_chest_appearances setting
         if settings.get(usize::from(source_world.get() - 1)).unwrap_or_else(|| &settings[0]).invisible_chests {
