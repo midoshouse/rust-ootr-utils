@@ -16,7 +16,10 @@ use {
         Repository,
         ResetType,
     },
-    itertools::Itertools as _,
+    itertools::{
+        Itertools as _,
+        Position,
+    },
     lazy_regex::regex_captures,
     serde::de::DeserializeOwned,
     serde_plain::derive_deserialize_from_fromstr,
@@ -268,59 +271,68 @@ impl Version {
         if !dir.exists() {
             let parent = self.dir_parent()?;
             fs::create_dir_all(&parent).await?;
-            let mut command = Command::new("git"); //TODO use git2 or gix instead? (git2 doesn't support shallow clones, gix is very low level)
-            command.arg("clone");
-            command.arg(format!("https://github.com/{}/OoT-Randomizer.git", self.branch.github_username()));
-            command.arg(self.repo_dir_name());
-            command.current_dir(parent);
-            let bisect = match self.branch {
-                Branch::Dev => {
-                    if self.base.patch == 0 {
-                        if self.base.minor == 0 {
-                            command.arg(format!("--branch=v{}.{}", self.base.major, self.base.minor));
-                        } else {
-                            command.arg(format!("--branch=v{}", self.base));
-                        }
+            let to_try = match self.branch {
+                Branch::Dev => if self.base.patch == 0 {
+                    if self.base.minor == 0 {
+                        vec![(vec![format!("--branch=v{}.{}", self.base.major, self.base.minor)], false)]
                     } else {
-                        command.arg(format!("--branch={}", self.base));
+                        // try tag formats `vX.Y` and `vX.Y.0`
+                        vec![
+                            (vec![format!("--branch=v{}.{}", self.base.major, self.base.minor)], false),
+                            (vec![format!("--branch=v{}", self.base)], false),
+                        ]
                     }
-                    false
-                }
-                Branch::DevFenhl => {
-                    command.arg(format!("--branch={}-fenhl.{}", self.base, self.supplementary.unwrap()));
-                    false
-                }
-                // Dev-Rob does have tags for some versions, but they're often missing so it's safer to use the bisection strategy.
-                // Though it might be worth trying to clone the tag first and only fall back to bisecting if that fails.
-                Branch::DevRob => true,
-                Branch::Sgl => {
-                    command.arg("--branch=feature/sgl-2023");
-                    false // this branch is not versioned correctly
-                }
-                Branch::DevBlitz | Branch::DevR => true,
+                } else {
+                    vec![(vec![format!("--branch={}", self.base)], false)]
+                },
+                Branch::DevFenhl => vec![(vec![format!("--branch={}-fenhl.{}", self.base, self.supplementary.unwrap())], false)],
+                Branch::DevRob => vec![
+                    // Rob sometimes tags new versions but doesn't merge them into Dev-Rob.
+                    (vec![format!("--branch={}.Rob-{}", self.base, self.supplementary.unwrap())], false),
+                    // Other times, versions are merged into Dev-Rob without being tagged.
+                    (Vec::default(), true),
+                ],
+                Branch::Sgl => vec![(
+                    vec![format!("--branch=feature/sgl-2023")],
+                    false, // this branch is not versioned correctly
+                )],
+                Branch::DevBlitz | Branch::DevR => vec![(Vec::default(), true)], // no tags on these forks
             };
-            if !bisect {
-                command.arg("--depth=1");
-            }
-            command.check("git").await?;
-            if bisect {
-                let repo = Repository::open(dir)?;
-                let mut commit = repo.head()?.peel_to_commit()?;
-                loop {
-                    let blob = commit.tree()?.get_path(Path::new("version.py"))?.to_object(&repo)?.into_blob()?;
-                    let version_py = std::str::from_utf8(blob.content())?;
-                    if version_py.lines()
-                        .filter_map(|line| regex_captures!("^__version__ = '([0-9.]+)'$", line))
-                        .filter_map(|(_, base_version)| base_version.parse::<semver::Version>().ok())
-                        .any(|base_version| base_version == self.base)
-                    && self.supplementary.map_or(true, |supplementary| version_py.lines()
-                        .filter_map(|line| regex_captures!("^supplementary_version = ([0-9]+)$", line))
-                        .filter_map(|(_, supplementary_version)| supplementary_version.parse::<u8>().ok())
-                        .any(|supplementary_version| supplementary_version == supplementary))
-                    { break }
-                    commit = commit.parents().next().ok_or(CloneError::VersionNotFound)?;
+            for (pos, (args, bisect)) in to_try.into_iter().with_position() {
+                let mut command = Command::new("git"); //TODO use git2 or gix instead? (git2 doesn't support shallow clones, gix is very low level)
+                command.arg("clone");
+                command.arg(format!("https://github.com/{}/OoT-Randomizer.git", self.branch.github_username()));
+                command.arg(self.repo_dir_name());
+                command.args(args);
+                if !bisect {
+                    command.arg("--depth=1");
                 }
-                repo.reset(&commit.into_object(), ResetType::Hard, None)?;
+                command.current_dir(&parent);
+                if let Err(e) = command.check("git").await {
+                    match pos {
+                        Position::First | Position::Middle => continue,
+                        Position::Last | Position::Only => return Err(e.into()),
+                    }
+                }
+                if bisect {
+                    let repo = Repository::open(&dir)?;
+                    let mut commit = repo.head()?.peel_to_commit()?;
+                    loop {
+                        let blob = commit.tree()?.get_path(Path::new("version.py"))?.to_object(&repo)?.into_blob()?;
+                        let version_py = std::str::from_utf8(blob.content())?;
+                        if version_py.lines()
+                            .filter_map(|line| regex_captures!("^__version__ = '([0-9.]+)'$", line))
+                            .filter_map(|(_, base_version)| base_version.parse::<semver::Version>().ok())
+                            .any(|base_version| base_version == self.base)
+                        && self.supplementary.map_or(true, |supplementary| version_py.lines()
+                            .filter_map(|line| regex_captures!("^supplementary_version = ([0-9]+)$", line))
+                            .filter_map(|(_, supplementary_version)| supplementary_version.parse::<u8>().ok())
+                            .any(|supplementary_version| supplementary_version == supplementary))
+                        { break }
+                        commit = commit.parents().next().ok_or(CloneError::VersionNotFound)?;
+                    }
+                    repo.reset(&commit.into_object(), ResetType::Hard, None)?;
+                }
             }
         }
         Ok(())
