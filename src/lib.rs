@@ -223,6 +223,10 @@ impl Version {
         })
     }
 
+    pub fn is_release(&self) -> bool {
+        self.branch == Branch::Dev && self.base.patch == 0
+    }
+
     pub fn branch(&self) -> Branch {
         self.branch
     }
