@@ -239,6 +239,17 @@ impl Version {
         self.supplementary
     }
 
+    pub fn to_string_web(&self, random_settings: bool) -> Option<String> {
+        Some(if self.is_release() {
+            if random_settings { return None }
+            self.base.to_string()
+        } else if let Some(supplementary) = self.supplementary.filter(|&supplementary| supplementary != 0) {
+            format!("{}_{}-{supplementary}", self.branch.web_name(random_settings)?, self.base)
+        } else {
+            format!("{}_{}", self.branch.web_name(random_settings)?, self.base)
+        })
+    }
+
     fn dir_parent(&self) -> Result<PathBuf, DirError> {
         #[cfg(unix)] {
             BaseDirectories::new()?.find_data_file("midos-house").ok_or(DirError::DataPath)
