@@ -470,7 +470,19 @@ import json, Item, Location, Patches
 
 class Settings:
     def __init__(self):
-        self.shuffle_child_trade = True # assume shuffled child trade so a MaskShop location listed in a spoiler log will be considered shuffled
+        self.shuffle_child_trade = [ # assume all trade items shuffled so a MaskShop location listed in a spoiler log will be considered shuffled
+            'Weird Egg',
+            'Chicken',
+            'Zeldas Letter',
+            'Keaton Mask',
+            'Skull Mask',
+            'Spooky Mask',
+            'Bunny Hood',
+            'Goron Mask',
+            'Zora Mask',
+            'Gerudo Mask',
+            'Mask of Truth',
+        ]
 
         self.keyring_give_bk = {} # checked on dev-fenhl to determine the type of keyring to send, which affects behavior
 
