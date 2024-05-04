@@ -74,7 +74,7 @@ impl Branch {
         }
     }
 
-    pub fn web_name_known_settings(&self) -> &'static str {
+    pub fn latest_web_name_known_settings(&self) -> &'static str {
         match self {
             Self::Dev => "dev",
             Self::DevBlitz => "devTFBlitz",
@@ -85,22 +85,22 @@ impl Branch {
         }
     }
 
-    pub fn web_name_random_settings(&self) -> Option<&'static str> {
+    pub fn latest_web_name_random_settings(&self) -> Option<&'static str> {
         match self {
             Self::Dev => None,
             Self::DevBlitz => None,
             Self::DevFenhl => Some("devFenhlRSL"),
-            Self::DevR => Some("devRSL"),
-            Self::DevRob => None,
+            Self::DevR => None,
+            Self::DevRob => Some("devRSL"),
             Self::Sgl => None,
         }
     }
 
-    pub fn web_name(&self, random_settings: bool) -> Option<&'static str> {
+    pub fn latest_web_name(&self, random_settings: bool) -> Option<&'static str> {
         if random_settings {
-            self.web_name_random_settings()
+            self.latest_web_name_random_settings()
         } else {
-            Some(self.web_name_known_settings())
+            Some(self.latest_web_name_known_settings())
         }
     }
 
@@ -239,14 +239,37 @@ impl Version {
         self.supplementary
     }
 
+    pub fn web_branch_name_known_settings(&self) -> &'static str {
+        self.branch.latest_web_name_known_settings() // known-settings web branch names have been stable so far
+    }
+
+    pub fn web_branch_name_random_settings(&self) -> Option<&'static str> {
+        match self.branch {
+            Branch::Dev => None,
+            Branch::DevBlitz => None,
+            Branch::DevFenhl => Some("devFenhlRSL"),
+            Branch::DevR => if self.base >= semver::Version::new(8, 1, 29) { None } else { Some("devRSL") },
+            Branch::DevRob => if self.base >= semver::Version::new(8, 1, 29) { Some("devRSL") } else { None },
+            Branch::Sgl => None,
+        }
+    }
+
+    pub fn web_branch_name(&self, random_settings: bool) -> Option<&'static str> {
+        if random_settings {
+            self.web_branch_name_random_settings()
+        } else {
+            Some(self.web_branch_name_known_settings())
+        }
+    }
+
     pub fn to_string_web(&self, random_settings: bool) -> Option<String> {
         Some(if self.is_release() {
             if random_settings { return None }
             self.base.to_string()
         } else if let Some(supplementary) = self.supplementary.filter(|&supplementary| supplementary != 0) {
-            format!("{}_{}-{supplementary}", self.branch.web_name(random_settings)?, self.base)
+            format!("{}_{}-{supplementary}", self.web_branch_name(random_settings)?, self.base)
         } else {
-            format!("{}_{}", self.branch.web_name(random_settings)?, self.base)
+            format!("{}_{}", self.web_branch_name(random_settings)?, self.base)
         })
     }
 
@@ -262,7 +285,7 @@ impl Version {
     pub fn dir_name(&self) -> String {
         format!(
             "rando-{}-{}{}",
-            self.branch.web_name_known_settings(),
+            self.web_branch_name_known_settings(),
             self.base,
             if let Some(supplementary) = self.supplementary { format!("-{supplementary}") } else { String::default() },
         )
