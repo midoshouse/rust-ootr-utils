@@ -29,7 +29,7 @@ use {
     },
 };
 
-fn deserialize_multiworld<'de, D: Deserializer<'de>, T: Deserialize<'de>>(deserializer: D) -> Result<Vec<T>, D::Error> {
+pub fn deserialize_multiworld<'de, D: Deserializer<'de>, T: Deserialize<'de>>(deserializer: D) -> Result<Vec<T>, D::Error> {
     struct MultiworldVisitor<'de, T: Deserialize<'de>> {
         _marker: PhantomData<(&'de (), T)>,
     }
