@@ -20,7 +20,10 @@ use {
         Itertools as _,
         Position,
     },
-    lazy_regex::regex_captures,
+    lazy_regex::{
+        regex_is_match,
+        regex_captures,
+    },
     serde::de::DeserializeOwned,
     serde_plain::derive_deserialize_from_fromstr,
     tokio::process::Command,
@@ -419,12 +422,20 @@ impl FromStr for Version {
                     Ok(Self::from_branch(Branch::Sgl, major.parse()?, minor.parse()?, patch.parse()?, 1))
                 } else if let Some((_, supplementary)) = regex_captures!("^blitz-([0-9]+)$", extra) {
                     Ok(Self::from_branch(Branch::DevBlitz, major.parse()?, minor.parse()?, patch.parse()?, supplementary.parse()?))
-                } else if let Some((_, supplementary)) = regex_captures!("^Fenhl-([0-9]+)(?: riir-[0-9]+)?$", extra) {
+                } else if let Some((_, supplementary)) = regex_captures!("^Fenhl-([0-9]+)$", extra) {
                     Ok(Self::from_branch(Branch::DevFenhl, major.parse()?, minor.parse()?, patch.parse()?, supplementary.parse()?))
                 } else if let Some((_, supplementary)) = regex_captures!("^R-([0-9]+)$", extra) {
                     Ok(Self::from_branch(Branch::DevR, major.parse()?, minor.parse()?, patch.parse()?, supplementary.parse()?))
                 } else if let Some((_, supplementary)) = regex_captures!("^Rob-([0-9]+)$", extra) {
                     Ok(Self::from_branch(Branch::DevRob, major.parse()?, minor.parse()?, patch.parse()?, supplementary.parse()?))
+                } else {
+                    Err(VersionParseError::Branch)
+                }
+            }
+            [base, extra, riir] => {
+                let (_, major, minor, patch) = regex_captures!(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$", base).ok_or(VersionParseError::Base)?;
+                if let (Some((_, supplementary)), true) = (regex_captures!("^Fenhl-([0-9]+)$", extra), regex_is_match!("^riir-[0-9]+$", riir)) {
+                    Ok(Self::from_branch(Branch::DevFenhl, major.parse()?, minor.parse()?, patch.parse()?, supplementary.parse()?))
                 } else {
                     Err(VersionParseError::Branch)
                 }
