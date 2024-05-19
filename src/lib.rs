@@ -419,7 +419,7 @@ impl FromStr for Version {
                     Ok(Self::from_branch(Branch::Sgl, major.parse()?, minor.parse()?, patch.parse()?, 1))
                 } else if let Some((_, supplementary)) = regex_captures!("^blitz-([0-9]+)$", extra) {
                     Ok(Self::from_branch(Branch::DevBlitz, major.parse()?, minor.parse()?, patch.parse()?, supplementary.parse()?))
-                } else if let Some((_, supplementary)) = regex_captures!("^Fenhl-([0-9]+)$", extra) {
+                } else if let Some((_, supplementary)) = regex_captures!("^Fenhl-([0-9]+)(?: riir-[0-9]+)?$", extra) {
                     Ok(Self::from_branch(Branch::DevFenhl, major.parse()?, minor.parse()?, patch.parse()?, supplementary.parse()?))
                 } else if let Some((_, supplementary)) = regex_captures!("^R-([0-9]+)$", extra) {
                     Ok(Self::from_branch(Branch::DevR, major.parse()?, minor.parse()?, patch.parse()?, supplementary.parse()?))
