@@ -3,6 +3,7 @@
 
 use {
     std::{
+        env,
         fmt,
         num::NonZeroU8,
         path::{
@@ -12,6 +13,7 @@ use {
         str::FromStr,
     },
     async_proto::Protocol,
+    directories::UserDirs,
     git2::{
         Repository,
         ResetType,
@@ -33,7 +35,6 @@ use {
     },
 };
 #[cfg(unix)] use xdg::BaseDirectories;
-#[cfg(windows)] use directories::UserDirs;
 
 pub mod camc;
 pub mod spoiler;
@@ -70,10 +71,11 @@ impl Branch {
         }
     }
 
-    fn github_branch_name(&self) -> Option<&'static str> {
+    fn github_branch_name(&self, allow_riir: bool) -> Option<&'static str> {
         match self {
+            Self::DevFenhl => if allow_riir { Some("riir") } else { None },
             Self::Sgl => Some("feature/sgl-2023"),
-            Self::Dev | Self::DevBlitz | Self::DevR | Self::DevRob | Self::DevFenhl => None,
+            Self::Dev | Self::DevBlitz | Self::DevR | Self::DevRob => None,
         }
     }
 
@@ -107,10 +109,10 @@ impl Branch {
         }
     }
 
-    fn dir_parent(&self) -> Result<PathBuf, DirError> {
+    fn dir_parent(&self, allow_riir: bool) -> Result<PathBuf, DirError> {
         #[cfg(unix)] {
             let base_path = Path::new("/opt/git/github.com").join(self.github_username()).join("OoT-Randomizer");
-            Ok(if self.github_branch_name().is_some() {
+            Ok(if self.github_branch_name(allow_riir).is_some() {
                 base_path.join("branch")
             } else {
                 base_path
@@ -118,7 +120,7 @@ impl Branch {
         }
         #[cfg(windows)] {
             let base_path = UserDirs::new().ok_or(DirError::UserDirs)?.home_dir().join("git").join("github.com").join(self.github_username()).join("OoT-Randomizer");
-            Ok(if self.github_branch_name().is_some() {
+            Ok(if self.github_branch_name(allow_riir).is_some() {
                 base_path.join("branch")
             } else {
                 base_path
@@ -126,8 +128,8 @@ impl Branch {
         }
     }
 
-    fn dir_name(&self) -> &'static str {
-        if let Some(branch_name) = self.github_branch_name() {
+    fn dir_name(&self, allow_riir: bool) -> &'static str {
+        if let Some(branch_name) = self.github_branch_name(allow_riir) {
             branch_name
         } else {
             #[cfg(unix)] { "master" }
@@ -135,28 +137,47 @@ impl Branch {
         }
     }
 
-    pub fn dir(&self) -> Result<PathBuf, DirError> {
-        Ok(self.dir_parent()?.join(self.dir_name()))
+    pub fn dir(&self, allow_riir: bool) -> Result<PathBuf, DirError> {
+        Ok(self.dir_parent(allow_riir)?.join(self.dir_name(allow_riir)))
     }
 
-    pub async fn clone_repo(&self) -> Result<(), CloneError> {
-        let dir = self.dir()?;
-        if dir.exists() {
+    pub async fn clone_repo(&self, allow_riir: bool) -> Result<(), CloneError> {
+        let dir = self.dir(allow_riir)?;
+        let build_rust = if fs::exists(&dir).await? {
+            let old_commit_hash = Repository::open(&dir)?.head()?.peel_to_commit()?.id();
             //TODO hard reset to remote instead?
             //TODO use git2 or gix instead?
-            Command::new("git").arg("pull").current_dir(dir).check("git").await?;
+            Command::new("git").arg("pull").current_dir(&dir).check("git").await?;
+            let new_commit_hash = Repository::open(&dir)?.head()?.peel_to_commit()?.id();
+            old_commit_hash != new_commit_hash && fs::exists(dir.join("Cargo.toml")).await?
         } else {
-            let parent = self.dir_parent()?;
+            let parent = self.dir_parent(allow_riir)?;
             fs::create_dir_all(&parent).await?;
             let mut command = Command::new("git"); //TODO use git2 or gix instead? (git2 doesn't support shallow clones, gix is very low level)
             command.arg("clone");
             command.arg(format!("https://github.com/{}/OoT-Randomizer.git", self.github_username()));
-            if let Some(branch_name) = self.github_branch_name() {
+            if let Some(branch_name) = self.github_branch_name(allow_riir) {
                 command.arg(format!("--branch={branch_name}"));
             }
-            command.arg(self.dir_name());
+            command.arg(self.dir_name(allow_riir));
             command.current_dir(parent);
             command.check("git").await?;
+            fs::exists(dir.join("Cargo.toml")).await?
+        };
+        if build_rust {
+            //TODO update Rust
+            let mut cargo = Command::new("cargo");
+            if let Some(user_dirs) = UserDirs::new() {
+                cargo.env("PATH", format!("{}:{}", user_dirs.home_dir().join(".cargo").join("bin").display(), env::var("PATH")?));
+            }
+            cargo.arg("build");
+            cargo.arg("--lib");
+            cargo.arg("--release");
+            cargo.current_dir(&dir);
+            cargo.check("cargo build").await?;
+            #[cfg(target_os = "windows")] fs::copy(dir.join("target").join("release").join("rs.dll"), dir.join("rs.pyd")).await?;
+            #[cfg(target_os = "linux")] fs::copy(dir.join("target").join("release").join("librs.so"), dir.join("rs.so")).await?;
+            #[cfg(target_os = "macos")] fs::copy(dir.join("target").join("release").join("librs.dylib"), dir.join("rs.so")).await?;
         }
         Ok(())
     }
@@ -185,6 +206,7 @@ pub enum DirError {
 #[derive(Debug, thiserror::Error)]
 pub enum CloneError {
     #[error(transparent)] Dir(#[from] DirError),
+    #[error(transparent)] Env(#[from] env::VarError),
     #[error(transparent)] Git(#[from] git2::Error),
     #[error(transparent)] Utf8(#[from] std::str::Utf8Error),
     #[error(transparent)] Wheel(#[from] wheel::Error),
@@ -309,7 +331,7 @@ impl Version {
 
     pub async fn clone_repo(&self) -> Result<(), CloneError> {
         let dir = self.dir()?;
-        if !dir.exists() {
+        if !fs::exists(&dir).await? {
             let parent = self.dir_parent()?;
             fs::create_dir_all(&parent).await?;
             let to_try = match self.branch {

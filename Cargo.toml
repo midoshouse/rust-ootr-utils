@@ -1,10 +1,11 @@
 [package]
 name = "ootr-utils"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 
 [dependencies]
 async-proto = { version = "0.21", features = ["semver"] }
+directories = "5"
 enum-iterator = "2"
 git2 = "0.18"
 itertools = "0.13"
@@ -20,6 +21,3 @@ wheel = { git = "https://github.com/fenhl/wheel", branch = "main" }
 
 [target."cfg(unix)".dependencies]
 xdg = "2.4.1"
-
-[target."cfg(windows)".dependencies]
-directories = "5"
