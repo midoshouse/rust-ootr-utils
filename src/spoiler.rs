@@ -42,13 +42,13 @@ pub fn deserialize_multiworld<'de, D: Deserializer<'de>, T: Deserialize<'de>>(de
         }
 
         fn visit_map<A: serde::de::MapAccess<'de>>(self, mut map: A) -> Result<Vec<T>, A::Error> {
-            Ok(if let Some(first_key) = map.next_key()? {
-                if let Some((_, world_number)) = regex_captures!("^World ([0-9]+)$", first_key) {
+            Ok(if let Some(first_key) = map.next_key::<String>()? {
+                if let Some((_, world_number)) = regex_captures!("^World ([0-9]+)$", &first_key) {
                     let world_number = world_number.parse::<usize>().expect("failed to parse world number");
                     let mut worlds = iter::repeat_with(|| None).take(world_number - 1).collect_vec();
                     worlds.push(map.next_value()?);
-                    while let Some((key, value)) = map.next_entry()? {
-                        let world_number = regex_captures!("^World ([0-9]+)$", key).expect("found mixed-format multiworld spoiler log").1.parse::<usize>().expect("failed to parse world number");
+                    while let Some((key, value)) = map.next_entry::<String, _>()? {
+                        let world_number = regex_captures!("^World ([0-9]+)$", &key).expect("found mixed-format multiworld spoiler log").1.parse::<usize>().expect("failed to parse world number");
                         if world_number > worlds.len() {
                             if world_number > worlds.len() + 1 {
                                 worlds.resize_with(world_number - 1, || None);
