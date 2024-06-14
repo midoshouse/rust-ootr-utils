@@ -242,7 +242,80 @@ impl ChestAppearance {
             "Ocarina C down Button" |
             "Ocarina C right Button" |
             "Ocarina C left Button" |
-            "Ocarina C up Button" => match camc_kind {
+            "Ocarina C up Button" |
+            "Stalfos Soul" |
+            "Octorok Soul" |
+            "Wallmaster Soul" |
+            "Dodongo Soul" |
+            "Keese Soul" |
+            "Tektite Soul" |
+            "Peahat Soul" |
+            "Lizalfos and Dinalfos Soul" |
+            "Gohma Larvae Soul" |
+            "Shabom Soul" |
+            "Baby Dodongo Soul" |
+            "Biri and Bari Soul" |
+            "Tailpasaran Soul" |
+            "Skulltula Soul" |
+            "Torch Slug Soul" |
+            "Moblin Soul" |
+            "Armos Soul" |
+            "Deku Baba Soul" |
+            "Deku Scrub Soul" |
+            "Bubble Soul" |
+            "Beamos Soul" |
+            "Floormaster Soul" |
+            "Redead and Gibdo Soul" |
+            "Skullwalltula Soul" |
+            "Flare Dancer Soul" |
+            "Dead hand Soul" |
+            "Shell Blade Soul" |
+            "Like-like Soul" |
+            "Spike Enemy Soul" |
+            "Anubis Soul" |
+            "Iron Knuckle Soul" |
+            "Skull Kid Soul" |
+            "Flying Pot Soul" |
+            "Freezard Soul" |
+            "Stinger Soul" |
+            "Wolfos Soul" |
+            "Guay Soul" |
+            "Queen Gohma Soul" |
+            "King Dodongo Soul" |
+            "Barinade Soul" |
+            "Phantom Ganon Soul" |
+            "Volvagia Soul" |
+            "Morpha Soul" |
+            "Bongo Bongo Soul" |
+            "Twinrova Soul" |
+            "Jabu Jabu Tentacle Soul" |
+            "Dark Link Soul" |
+            "Deku Tree Souls" |
+            "Dodongos Cavern Souls" |
+            "Jabu Jabus Belly Souls" |
+            "Forest Temple Souls" |
+            "Fire Temple Souls" |
+            "Water Temple Souls" |
+            "Shadow Temple Souls" |
+            "Spirit Temple Souls" |
+            "Bottom of the Well Souls" |
+            "Ice Cavern Souls" |
+            "Gerudo Training Ground Souls" |
+            "Ganons Castle Souls" |
+            "Forest Area Souls" |
+            "Hyrule Field Souls" |
+            "Lake Hylia Souls" |
+            "Gerudo Area Souls" |
+            "Market Area Souls" |
+            "Kakariko Area Souls" |
+            "Goron Area Souls" |
+            "Zora Area Souls" |
+            "Lon Lon Ranch Souls" |
+            "Grottos Souls" |
+            "Fishing Rod" |
+            "Fish (Child 10 lb)" |
+            "Fish (Adult 16 lb)" |
+            "Hylian Loach" => match camc_kind {
                 CorrectChestAppearances::Off => unreachable!(),
                 CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::Normal, big: true },
                 CorrectChestAppearances::Textures => ChestAppearance { texture: ChestTexture::Major, big: vanilla_appearance.big },
@@ -420,7 +493,13 @@ impl ChestAppearance {
             "Rupee (Treasure Chest Game) (1)" |
             "Rupees (Treasure Chest Game) (5)" |
             "Rupees (Treasure Chest Game) (20)" |
-            "Rupees (Treasure Chest Game) (50)" => match camc_kind {
+            "Rupees (Treasure Chest Game) (50)" |
+            "Fairy Drop" |
+            "Nothing" |
+            "Fish (Child 6 lb)" |
+            "Fish (Child 8 lb)" |
+            "Fish (Adult 10 lb)" |
+            "Fish (Adult 12 lb)" => match camc_kind {
                 CorrectChestAppearances::Off => unreachable!(),
                 CorrectChestAppearances::Classic => ChestAppearance { texture: ChestTexture::Normal, big: false },
                 CorrectChestAppearances::Textures => ChestAppearance { texture: ChestTexture::Normal, big: vanilla_appearance.big },
