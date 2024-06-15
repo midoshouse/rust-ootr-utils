@@ -556,6 +556,10 @@ class World:
         self.id = id
         self.settings = Settings()
 
+    @property
+    def shuffle_ganon_bosskey(self):
+        return self.settings.shuffle_ganon_bosskey
+
 loc = Location.LocationFactory({location:?})
 loc.world = World({source_world})
 loc.item = Item.ItemFactory({item:?}, World({target_world}))
