@@ -46,7 +46,8 @@ pub enum Branch {
     DevFenhl,
     DevR,
     DevRob,
-    Sgl,
+    Sgl2023,
+    Sgl2024,
 }
 
 impl Branch {
@@ -64,7 +65,7 @@ impl Branch {
     pub fn github_username(&self) -> &'static str {
         match self {
             Self::Dev => "OoTRandomizer",
-            Self::DevBlitz | Self::Sgl => "Elagatua",
+            Self::DevBlitz | Self::Sgl2023 | Self::Sgl2024 => "Elagatua",
             Self::DevR => "Roman971",
             Self::DevFenhl => "fenhl",
             Self::DevRob => "rrealmuto",
@@ -74,7 +75,8 @@ impl Branch {
     fn github_branch_name(&self, allow_riir: bool) -> Option<&'static str> {
         match self {
             Self::DevFenhl => if allow_riir { Some("riir") } else { None },
-            Self::Sgl => Some("feature/sgl-2023"),
+            Self::Sgl2023 => Some("feature/sgl-2023"),
+            Self::Sgl2024 => Some("feature/sgl-2024"),
             Self::Dev | Self::DevBlitz | Self::DevR | Self::DevRob => None,
         }
     }
@@ -86,7 +88,7 @@ impl Branch {
             Self::DevFenhl => "devFenhl",
             Self::DevR => "devR",
             Self::DevRob => "devrreal",
-            Self::Sgl => "devSGLive22",
+            Self::Sgl2023 | Self::Sgl2024 => "devSGLive22",
         }
     }
 
@@ -97,7 +99,7 @@ impl Branch {
             Self::DevFenhl => Some("devFenhlRSL"),
             Self::DevR => None,
             Self::DevRob => Some("devRSL"),
-            Self::Sgl => None,
+            Self::Sgl2023 | Self::Sgl2024 => None,
         }
     }
 
@@ -275,7 +277,7 @@ impl Version {
             Branch::DevFenhl => Some("devFenhlRSL"),
             Branch::DevR => if self.base >= semver::Version::new(8, 1, 29) { None } else { Some("devRSL") },
             Branch::DevRob => if self.base >= semver::Version::new(8, 1, 29) { Some("devRSL") } else { None },
-            Branch::Sgl => None,
+            Branch::Sgl2023 | Branch::Sgl2024 => None,
         }
     }
 
@@ -355,8 +357,12 @@ impl Version {
                     // Other times, versions are merged into Dev-Rob without being tagged.
                     (Vec::default(), true),
                 ],
-                Branch::Sgl => vec![(
+                Branch::Sgl2023 => vec![(
                     vec![format!("--branch=feature/sgl-2023")],
+                    false, // this branch is not versioned correctly
+                )],
+                Branch::Sgl2024 => vec![(
+                    vec![format!("--branch=feature/sgl-2024")],
                     false, // this branch is not versioned correctly
                 )],
                 Branch::DevBlitz | Branch::DevR => vec![(Vec::default(), true)], // no tags on these forks
@@ -440,8 +446,6 @@ impl FromStr for Version {
                 let (_, major, minor, patch) = regex_captures!(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$", base).ok_or(VersionParseError::Base)?;
                 if let "f.LUM" | "Release" | "pic-2" = *extra {
                     Ok(Self::from_dev(major.parse()?, minor.parse()?, patch.parse()?))
-                } else if let "SGL" = *extra {
-                    Ok(Self::from_branch(Branch::Sgl, major.parse()?, minor.parse()?, patch.parse()?, 1))
                 } else if let Some((_, supplementary)) = regex_captures!("^blitz-([0-9]+)$", extra) {
                     Ok(Self::from_branch(Branch::DevBlitz, major.parse()?, minor.parse()?, patch.parse()?, supplementary.parse()?))
                 } else if let Some((_, supplementary)) = regex_captures!("^Fenhl-([0-9]+)$", extra) {
@@ -472,12 +476,11 @@ derive_deserialize_from_fromstr!(Version, "valid randomizer version number");
 impl fmt::Display for Version {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.branch {
-            Branch::Dev => write!(f, "{} f.LUM", self.base),
+            Branch::Dev | Branch::Sgl2023 | Branch::Sgl2024 => write!(f, "{} f.LUM", self.base),
             Branch::DevBlitz => write!(f, "{} blitz-{}", self.base, self.supplementary.unwrap()),
             Branch::DevFenhl => write!(f, "{} Fenhl-{}", self.base, self.supplementary.unwrap()),
             Branch::DevR => write!(f, "{} R-{}", self.base, self.supplementary.unwrap()),
             Branch::DevRob => write!(f, "{} Rob-{}", self.base, self.supplementary.unwrap()),
-            Branch::Sgl => write!(f, "{} SGL", self.base),
         }
     }
 }
