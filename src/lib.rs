@@ -295,6 +295,8 @@ impl Version {
             self.base.to_string()
         } else if let Some(supplementary) = self.supplementary.filter(|&supplementary| supplementary != 0) {
             format!("{}_{}-{supplementary}", self.web_branch_name(random_settings)?, self.base)
+        } else if self.base >= semver::Version::new(8, 1, 14) {
+            format!("{}_{}-0", self.web_branch_name(random_settings)?, self.base)
         } else {
             format!("{}_{}", self.web_branch_name(random_settings)?, self.base)
         })
