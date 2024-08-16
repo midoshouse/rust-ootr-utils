@@ -78,6 +78,7 @@ pub fn deserialize_multiworld<'de, D: Deserializer<'de>, T: Deserialize<'de>>(de
 #[derive(Debug, Deserialize, Protocol)]
 pub struct SpoilerLog {
     pub file_hash: [HashIcon; 5],
+    pub password: Option<[OcarinaNote; 6]>,
     #[serde(rename = ":version")]
     pub version: crate::Version,
     #[serde(deserialize_with = "deserialize_multiworld")]
@@ -258,6 +259,69 @@ impl HashIcon {
 
 derive_fromstr_from_deserialize!(HashIcon);
 derive_display_from_serialize!(HashIcon);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Sequence, Deserialize, Serialize, Protocol)]
+pub enum OcarinaNote {
+    A,
+    #[serde(rename = "C down")]
+    CDown,
+    #[serde(rename = "C right")]
+    CRight,
+    #[serde(rename = "C left")]
+    CLeft,
+    #[serde(rename = "C up")]
+    CUp,
+}
+
+impl OcarinaNote {
+    pub fn from_racetime_emoji(emoji: &str) -> Option<Self> {
+        match emoji {
+            "NoteA" => Some(Self::A),
+            "NoteCdown" => Some(Self::CDown),
+            "NoteCright" => Some(Self::CRight),
+            "NoteCleft" => Some(Self::CLeft),
+            "NoteCup" => Some(Self::CUp),
+            _ => None,
+        }
+    }
+
+    pub fn to_racetime_emoji(&self) -> &'static str {
+        match self {
+            Self::A => "NoteA",
+            Self::CDown => "NoteCdown",
+            Self::CRight => "NoteCright",
+            Self::CLeft => "NoteCleft",
+            Self::CUp => "NoteCup",
+        }
+    }
+}
+
+impl TryFrom<char> for OcarinaNote {
+    type Error = char;
+
+    fn try_from(c: char) -> Result<Self, char> {
+        match c {
+            'A' | 'a' => Ok(Self::A),
+            'D' | 'd' | 'V' | 'v' => Ok(Self::CDown),
+            'R' | 'r' | '>' => Ok(Self::CRight),
+            'L' | 'l' | '<' => Ok(Self::CLeft),
+            'U' | 'u' | '^' => Ok(Self::CUp),
+            _ => Err(c),
+        }
+    }
+}
+
+impl From<OcarinaNote> for char {
+    fn from(note: OcarinaNote) -> Self {
+        match note {
+            OcarinaNote::A => 'A',
+            OcarinaNote::CDown => 'v',
+            OcarinaNote::CRight => '>',
+            OcarinaNote::CLeft => '<',
+            OcarinaNote::CUp => '^',
+        }
+    }
+}
 
 fn make_one() -> NonZeroU8 { NonZeroU8::new(1).unwrap() }
 
