@@ -146,7 +146,7 @@ impl Branch {
             let old_commit_hash = Repository::open(&dir)?.head()?.peel_to_commit()?.id();
             //TODO hard reset to remote instead?
             //TODO use git2 or gix instead?
-            Command::new("git").arg("pull").current_dir(&dir).check("git").await?;
+            Command::new("git").arg("pull").current_dir(&dir).check("git pull").await?;
             let new_commit_hash = Repository::open(&dir)?.head()?.peel_to_commit()?.id();
             old_commit_hash != new_commit_hash && fs::exists(dir.join("Cargo.toml")).await?
         } else {
@@ -160,7 +160,7 @@ impl Branch {
             }
             command.arg(self.dir_name(allow_riir));
             command.current_dir(parent);
-            command.check("git").await?;
+            command.check("git clone").await?;
             fs::exists(dir.join("Cargo.toml")).await?
         };
         if build_rust {
@@ -376,7 +376,7 @@ impl Version {
                     command.arg("--depth=1");
                 }
                 command.current_dir(&parent);
-                if let Err(e) = command.check("git").await {
+                if let Err(e) = command.check("git clone").await {
                     match pos {
                         Position::First | Position::Middle => continue,
                         Position::Last | Position::Only => return Err(e.into()),
