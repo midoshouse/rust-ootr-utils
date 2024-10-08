@@ -152,7 +152,11 @@ impl Branch {
         } else {
             let parent = self.dir_parent(allow_riir)?;
             fs::create_dir_all(&parent).await?;
-            let mut command = Command::new("git"); //TODO use git2 or gix instead? (git2 doesn't support shallow clones, gix is very low level)
+            //TODO use git2 or gix instead? (git2 doesn't support shallow clones, gix is very low level)
+            // for gix, see:
+            // https://docs.rs/gix/latest/gix/fn.prepare_clone.html
+            // https://github.com/Byron/gitoxide/blob/072ee32f693a31161cd6a843da6582d13efbb20b/gitoxide-core/src/repository/clone.rs#L75-L84
+            let mut command = Command::new("git");
             command.arg("clone");
             command.arg(format!("https://github.com/{}/OoT-Randomizer.git", self.github_username()));
             if let Some(branch_name) = self.github_branch_name(allow_riir) {
@@ -367,7 +371,11 @@ impl Version {
                 Branch::DevBlitz | Branch::DevR => vec![(Vec::default(), true)], // no tags on these forks
             };
             for (pos, (args, bisect)) in to_try.into_iter().with_position() {
-                let mut command = Command::new("git"); //TODO use git2 or gix instead? (git2 doesn't support shallow clones, gix is very low level)
+                //TODO use git2 or gix instead? (git2 doesn't support shallow clones, gix is very low level)
+                // for gix, see:
+                // https://docs.rs/gix/latest/gix/fn.prepare_clone.html
+                // https://github.com/Byron/gitoxide/blob/072ee32f693a31161cd6a843da6582d13efbb20b/gitoxide-core/src/repository/clone.rs#L75-L84
+                let mut command = Command::new("git");
                 command.arg("clone");
                 command.arg(format!("https://github.com/{}/OoT-Randomizer.git", self.branch.github_username()));
                 command.arg(self.repo_dir_name());
