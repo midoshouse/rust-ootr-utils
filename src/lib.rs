@@ -11,10 +11,6 @@ use {
     },
     async_proto::Protocol,
     directories::UserDirs,
-    git2::{
-        Repository,
-        ResetType,
-    },
     itertools::{
         Itertools as _,
         Position,
@@ -143,17 +139,16 @@ impl Branch {
     pub async fn clone_repo(&self, allow_riir: bool) -> Result<(), CloneError> {
         let dir = self.dir(allow_riir)?;
         let build_rust = if fs::exists(&dir).await? {
-            let old_commit_hash = Repository::open(&dir)?.head()?.peel_to_commit()?.id();
+            let old_commit_hash = gix::open(&dir)?.head_id()?.detach();
             //TODO hard reset to remote instead?
-            //TODO use git2 or gix instead?
+            //TODO use gix instead?
             Command::new("git").arg("pull").current_dir(&dir).check("git pull").await?;
-            let new_commit_hash = Repository::open(&dir)?.head()?.peel_to_commit()?.id();
+            let new_commit_hash = gix::open(&dir)?.head_id()?.detach();
             old_commit_hash != new_commit_hash && fs::exists(dir.join("Cargo.toml")).await?
         } else {
             let parent = self.dir_parent(allow_riir)?;
             fs::create_dir_all(&parent).await?;
-            //TODO use git2 or gix instead? (git2 doesn't support shallow clones, gix is very low level)
-            // for gix, see:
+            //TODO use gix instead? see:
             // https://docs.rs/gix/latest/gix/fn.prepare_clone.html
             // https://github.com/Byron/gitoxide/blob/072ee32f693a31161cd6a843da6582d13efbb20b/gitoxide-core/src/repository/clone.rs#L75-L84
             let mut command = Command::new("git");
@@ -210,19 +205,20 @@ pub enum DirError {
 pub enum CloneError {
     #[error(transparent)] Dir(#[from] DirError),
     #[error(transparent)] Env(#[from] env::VarError),
-    #[error(transparent)] Git(#[from] git2::Error),
+    #[error(transparent)] GitCommit(#[from] gix::object::commit::Error),
+    #[error(transparent)] GitFindObject(#[from] gix::object::find::existing::Error),
+    #[error(transparent)] GitHeadCommit(#[from] gix::reference::head_commit::Error),
+    #[error(transparent)] GitHeadId(#[from] gix::reference::head_id::Error),
+    #[error(transparent)] GitTryInto(#[from] gix::object::try_into::Error),
+    #[error(transparent)] GitOpen(#[from] gix::open::Error),
     #[error(transparent)] Utf8(#[from] std::str::Utf8Error),
     #[error(transparent)] Wheel(#[from] wheel::Error),
     #[error("failed to convert git object")]
     GitObject,
+    #[error("encountered a revision of the randomizer repo without a version.py")]
+    MissingVersionFile,
     #[error("the given version was not found on its branch")]
     VersionNotFound,
-}
-
-impl<'a> From<git2::Object<'a>> for CloneError {
-    fn from(_: git2::Object<'a>) -> Self {
-        Self::GitObject
-    }
 }
 
 impl Version {
@@ -371,8 +367,7 @@ impl Version {
                 Branch::DevBlitz | Branch::DevR => vec![(Vec::default(), true)], // no tags on these forks
             };
             for (pos, (args, bisect)) in to_try.into_iter().with_position() {
-                //TODO use git2 or gix instead? (git2 doesn't support shallow clones, gix is very low level)
-                // for gix, see:
+                //TODO use gix instead? see:
                 // https://docs.rs/gix/latest/gix/fn.prepare_clone.html
                 // https://github.com/Byron/gitoxide/blob/072ee32f693a31161cd6a843da6582d13efbb20b/gitoxide-core/src/repository/clone.rs#L75-L84
                 let mut command = Command::new("git");
@@ -391,11 +386,11 @@ impl Version {
                     }
                 }
                 if bisect {
-                    let repo = Repository::open(&dir)?;
-                    let mut commit = repo.head()?.peel_to_commit()?;
+                    let repo = gix::open(&dir)?;
+                    let mut commit = repo.head_commit()?;
                     loop {
-                        let blob = commit.tree()?.get_path(Path::new("version.py"))?.to_object(&repo)?.into_blob()?;
-                        let version_py = std::str::from_utf8(blob.content())?;
+                        let blob = commit.tree()?.find_entry("version.py").ok_or(CloneError::MissingVersionFile)?.object()?.try_into_blob()?;
+                        let version_py = std::str::from_utf8(&blob.data)?;
                         if version_py.lines()
                             .filter_map(|line| regex_captures!("^__version__ = '([0-9.]+)'$", line))
                             .filter_map(|(_, base_version)| base_version.parse::<semver::Version>().ok())
@@ -405,9 +400,10 @@ impl Version {
                             .filter_map(|(_, supplementary_version)| supplementary_version.parse::<u8>().ok())
                             .any(|supplementary_version| supplementary_version == supplementary))
                         { break }
-                        commit = commit.parents().next().ok_or(CloneError::VersionNotFound)?;
+                        let parent_id = commit.parent_ids().next().ok_or(CloneError::VersionNotFound)?;
+                        commit = parent_id.object()?.try_into_commit()?;
                     }
-                    repo.reset(&commit.into_object(), ResetType::Hard, None)?;
+                    Command::new("git").arg("reset").arg("--hard").arg(commit.id.to_string()).check("git reset").await?; //TODO use gix instead?
                 }
             }
         }
