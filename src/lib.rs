@@ -24,7 +24,10 @@ use {
     tokio::process::Command,
     wheel::{
         fs,
-        traits::AsyncCommandOutputExt as _,
+        traits::{
+            AsyncCommandOutputExt as _,
+            SyncCommandOutputExt as _,
+        },
     },
 };
 #[cfg(unix)] use xdg::BaseDirectories;
@@ -403,7 +406,7 @@ impl Version {
                         let parent_id = commit.parent_ids().next().ok_or(CloneError::VersionNotFound)?;
                         commit = parent_id.object()?.try_into_commit()?;
                     }
-                    Command::new("git").arg("reset").arg("--hard").arg(commit.id.to_string()).check("git reset").await?; //TODO use gix instead?
+                    std::process::Command::new("git").arg("reset").arg("--hard").arg(commit.id.to_string()).check("git reset")?; //TODO use gix instead?
                 }
             }
         }
