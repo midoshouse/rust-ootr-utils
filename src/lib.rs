@@ -42,6 +42,7 @@ pub enum Branch {
     DevFenhl,
     DevR,
     DevRob,
+    Enemizer,
     Sgl2023,
     Sgl2024,
 }
@@ -51,6 +52,7 @@ impl Branch {
         match branch_identifier {
             0x00 | 0x01 => Some(Self::Dev),
             0x45 => Some(Self::DevRob),
+            0x46 => Some(Self::Enemizer),
             0x52 => Some(Self::DevR),
             0x69 => Some(Self::DevBlitz),
             0xfe => Some(Self::DevFenhl),
@@ -64,13 +66,14 @@ impl Branch {
             Self::DevBlitz | Self::Sgl2023 | Self::Sgl2024 => "Elagatua",
             Self::DevR => "Roman971",
             Self::DevFenhl => "fenhl",
-            Self::DevRob => "rrealmuto",
+            Self::DevRob | Self::Enemizer => "rrealmuto",
         }
     }
 
     fn github_branch_name(&self, allow_riir: bool) -> Option<&'static str> {
         match self {
             Self::DevFenhl => if allow_riir { Some("riir") } else { None },
+            Self::Enemizer => Some("enemy_shuffle"),
             Self::Sgl2023 => Some("feature/sgl-2023"),
             Self::Sgl2024 => Some("feature/sgl-2024"),
             Self::Dev | Self::DevBlitz | Self::DevR | Self::DevRob => None,
@@ -84,6 +87,7 @@ impl Branch {
             Self::DevFenhl => "devFenhl",
             Self::DevR => "devR",
             Self::DevRob => "devrreal",
+            Self::Enemizer => "devEnemyShuffle",
             Self::Sgl2023 | Self::Sgl2024 => "devSGLive22",
         }
     }
@@ -95,6 +99,7 @@ impl Branch {
             Self::DevFenhl => Some("devFenhlRSL"),
             Self::DevR => None,
             Self::DevRob => Some("devRSL"),
+            Self::Enemizer => None,
             Self::Sgl2023 | Self::Sgl2024 => None,
         }
     }
@@ -277,6 +282,7 @@ impl Version {
             Branch::DevFenhl => Some("devFenhlRSL"),
             Branch::DevR => if self.base >= semver::Version::new(8, 1, 29) { None } else { Some("devRSL") },
             Branch::DevRob => if self.base >= semver::Version::new(8, 1, 29) { Some("devRSL") } else { None },
+            Branch::Enemizer => None,
             Branch::Sgl2023 | Branch::Sgl2024 => None,
         }
     }
@@ -358,6 +364,11 @@ impl Version {
                     (vec![format!("--branch={}.Rob-{}", self.base, self.supplementary.unwrap())], false),
                     // Other times, versions are merged into Dev-Rob without being tagged.
                     (Vec::default(), true),
+                ],
+                Branch::Enemizer => vec![
+                    // Handled like Dev-Rob to be safe
+                    (vec![format!("--branch={}.Rob-E{}", self.base, self.supplementary.unwrap())], false),
+                    (vec![format!("--branch=enemy_shuffle")], true),
                 ],
                 Branch::Sgl2023 => vec![(
                     vec![format!("--branch=feature/sgl-2023")],
@@ -460,6 +471,8 @@ impl FromStr for Version {
                     Ok(Self::from_branch(Branch::DevR, major.parse()?, minor.parse()?, patch.parse()?, supplementary.parse()?))
                 } else if let Some((_, supplementary)) = regex_captures!("^Rob-([0-9]+)$", extra) {
                     Ok(Self::from_branch(Branch::DevRob, major.parse()?, minor.parse()?, patch.parse()?, supplementary.parse()?))
+                } else if let Some((_, supplementary)) = regex_captures!("^Rob-E([0-9]+)$", extra) {
+                    Ok(Self::from_branch(Branch::Enemizer, major.parse()?, minor.parse()?, patch.parse()?, supplementary.parse()?))
                 } else {
                     Err(VersionParseError::Branch)
                 }
@@ -487,6 +500,7 @@ impl fmt::Display for Version {
             Branch::DevFenhl => write!(f, "{} Fenhl-{}", self.base, self.supplementary.unwrap()),
             Branch::DevR => write!(f, "{} R-{}", self.base, self.supplementary.unwrap()),
             Branch::DevRob => write!(f, "{} Rob-{}", self.base, self.supplementary.unwrap()),
+            Branch::Enemizer => write!(f, "{} Rob-E{}", self.base, self.supplementary.unwrap()),
         }
     }
 }
