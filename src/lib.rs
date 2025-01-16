@@ -146,13 +146,14 @@ impl Branch {
 
     pub async fn clone_repo(&self, allow_riir: bool) -> Result<(), CloneError> {
         let dir = self.dir(allow_riir)?;
+        let cargo_manifest_path = dir.join("Cargo.toml");
         let build_rust = if fs::exists(&dir).await? {
             let old_commit_hash = gix::open(&dir)?.head_id()?.detach();
             //TODO hard reset to remote instead?
             //TODO use gix instead?
             Command::new("git").arg("pull").current_dir(&dir).check("git pull").await?;
             let new_commit_hash = gix::open(&dir)?.head_id()?.detach();
-            old_commit_hash != new_commit_hash && fs::exists(dir.join("Cargo.toml")).await?
+            old_commit_hash != new_commit_hash && fs::exists(&cargo_manifest_path).await?
         } else {
             let parent = self.dir_parent(allow_riir)?;
             fs::create_dir_all(&parent).await?;
@@ -184,6 +185,28 @@ impl Branch {
             #[cfg(target_os = "windows")] fs::copy(dir.join("target").join("release").join("rs.dll"), dir.join("rs.pyd")).await?;
             #[cfg(target_os = "linux")] fs::copy(dir.join("target").join("release").join("librs.so"), dir.join("rs.so")).await?;
             #[cfg(target_os = "macos")] fs::copy(dir.join("target").join("release").join("librs.dylib"), dir.join("rs.so")).await?;
+            let use_rust_cli = if let Some(package) = cargo_metadata::MetadataCommand::new()
+                .manifest_path(cargo_manifest_path)
+                .exec()?
+                .packages
+                .into_iter()
+                .find(|package| package.name == "ootr-cli")
+            {
+                package.version >= semver::Version { major: 8, minor: 2, patch: 49, pre: "fenhl.1.riir.2".parse()?, build: semver::BuildMetadata::default() }
+            } else {
+                false
+            };
+            if use_rust_cli {
+                let mut cargo = Command::new("cargo");
+                if let Some(user_dirs) = UserDirs::new() {
+                    cargo.env("PATH", format!("{}:{}", user_dirs.home_dir().join(".cargo").join("bin").display(), env::var("PATH")?));
+                }
+                cargo.arg("build");
+                cargo.arg("--release");
+                cargo.arg("--package=ootr-cli");
+                cargo.current_dir(&dir);
+                cargo.check("cargo build").await?;
+            }
         }
         Ok(())
     }
@@ -211,6 +234,7 @@ pub enum DirError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum CloneError {
+    #[error(transparent)] CargoMetadata(#[from] cargo_metadata::Error),
     #[error(transparent)] Dir(#[from] DirError),
     #[error(transparent)] Env(#[from] env::VarError),
     #[error(transparent)] GitCommit(#[from] gix::object::commit::Error),
@@ -219,6 +243,7 @@ pub enum CloneError {
     #[error(transparent)] GitHeadId(#[from] gix::reference::head_id::Error),
     #[error(transparent)] GitTryInto(#[from] gix::object::try_into::Error),
     #[error(transparent)] GitOpen(#[from] gix::open::Error),
+    #[error(transparent)] Semver(#[from] semver::Error),
     #[error(transparent)] Utf8(#[from] std::str::Utf8Error),
     #[error(transparent)] Wheel(#[from] wheel::Error),
     #[error("failed to convert git object")]

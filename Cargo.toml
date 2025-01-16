@@ -15,6 +15,7 @@ warnings = "deny"
 
 [dependencies]
 async-proto = { version = "0.24", features = ["semver"] }
+cargo_metadata = "0.19.1"
 directories = "5"
 enum-iterator = "2"
 gix = "0.68"
