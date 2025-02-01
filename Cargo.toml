@@ -16,10 +16,10 @@ warnings = "deny"
 [dependencies]
 async-proto = { version = "0.24", features = ["semver"] }
 cargo_metadata = "0.19.1"
-directories = "5"
+directories = "6"
 enum-iterator = "2"
-gix = "0.68"
-itertools = "0.13"
+gix = "0.70"
+itertools = "0.14"
 lazy-regex = "3"
 semver = "1.0.16"
 serde = { version = "1.0.152", features = ["derive"] }
