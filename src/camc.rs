@@ -271,6 +271,7 @@ impl ChestAppearance {
             "Dead hand Soul" |
             "Shell Blade Soul" |
             "Like-like Soul" |
+            "Like Like Soul" |
             "Spike Enemy Soul" |
             "Anubis Soul" |
             "Iron Knuckle Soul" |
