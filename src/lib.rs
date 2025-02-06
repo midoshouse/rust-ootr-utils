@@ -178,8 +178,9 @@ impl Branch {
                 cargo.env("PATH", format!("{}:{}", user_dirs.home_dir().join(".cargo").join("bin").display(), env::var("PATH")?));
             }
             cargo.arg("build");
-            cargo.arg("--lib");
+            cargo.arg("--lib"); // old versions of the riir branch were organized as a single crate with multiple targets
             cargo.arg("--release");
+            cargo.arg("--package=ootr-python");
             cargo.current_dir(&dir);
             cargo.check("cargo build").await?;
             #[cfg(target_os = "windows")] fs::copy(dir.join("target").join("release").join("rs.dll"), dir.join("rs.pyd")).await?;
@@ -203,7 +204,7 @@ impl Branch {
                 }
                 cargo.arg("build");
                 cargo.arg("--release");
-                cargo.arg("--package=ootr-cli");
+                cargo.arg("--package=ootr-cli"); // old versions of the riir branch had ootr-python as the default crate
                 cargo.current_dir(&dir);
                 cargo.check("cargo build").await?;
             }
