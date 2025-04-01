@@ -1,7 +1,7 @@
 [package]
 name = "ootr-utils"
 version = "0.6.3"
-edition = "2021"
+edition = "2024"
 
 [lints.rust]
 rust_2018_idioms = "deny"
