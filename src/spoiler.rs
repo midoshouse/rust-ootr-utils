@@ -260,6 +260,91 @@ impl HashIcon {
 derive_fromstr_from_deserialize!(HashIcon);
 derive_display_from_serialize!(HashIcon);
 
+#[derive(Debug, thiserror::Error)]
+#[error("invalid hash icon")]
+pub struct HashIconDecodeError;
+
+impl TryFrom<u8> for HashIcon {
+    type Error = HashIconDecodeError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0x00 => Ok(Self::Beans),
+            0x01 => Ok(Self::BigMagic),
+            0x02 => Ok(Self::Bombchu),
+            0x03 => Ok(Self::Boomerang),
+            0x04 => Ok(Self::BossKey),
+            0x05 => Ok(Self::BottledFish),
+            0x06 => Ok(Self::BottledMilk),
+            0x07 => Ok(Self::Bow),
+            0x08 => Ok(Self::Compass),
+            0x09 => Ok(Self::Cucco),
+            0x0a => Ok(Self::DekuNut),
+            0x0b => Ok(Self::DekuStick),
+            0x0c => Ok(Self::FairyOcarina),
+            0x0d => Ok(Self::Frog),
+            0x0e => Ok(Self::GoldScale),
+            0x0f => Ok(Self::HeartContainer),
+            0x10 => Ok(Self::HoverBoots),
+            0x11 => Ok(Self::KokiriTunic),
+            0x12 => Ok(Self::LensOfTruth),
+            0x13 => Ok(Self::Longshot),
+            0x14 => Ok(Self::Map),
+            0x15 => Ok(Self::MaskOfTruth),
+            0x16 => Ok(Self::MasterSword),
+            0x17 => Ok(Self::MegatonHammer),
+            0x18 => Ok(Self::MirrorShield),
+            0x19 => Ok(Self::Mushroom),
+            0x1a => Ok(Self::Saw),
+            0x1b => Ok(Self::SilverGauntlets),
+            0x1c => Ok(Self::SkullToken),
+            0x1d => Ok(Self::Slingshot),
+            0x1e => Ok(Self::SoldOut),
+            0x1f => Ok(Self::StoneOfAgony),
+            _ => Err(HashIconDecodeError),
+        }
+    }
+}
+
+impl From<HashIcon> for u8 {
+    fn from(icon: HashIcon) -> Self {
+        match icon {
+            HashIcon::Beans => 0x00,
+            HashIcon::BigMagic => 0x01,
+            HashIcon::Bombchu => 0x02,
+            HashIcon::Boomerang => 0x03,
+            HashIcon::BossKey => 0x04,
+            HashIcon::BottledFish => 0x05,
+            HashIcon::BottledMilk => 0x06,
+            HashIcon::Bow => 0x07,
+            HashIcon::Compass => 0x08,
+            HashIcon::Cucco => 0x09,
+            HashIcon::DekuNut => 0x0a,
+            HashIcon::DekuStick => 0x0b,
+            HashIcon::FairyOcarina => 0x0c,
+            HashIcon::Frog => 0x0d,
+            HashIcon::GoldScale => 0x0e,
+            HashIcon::HeartContainer => 0x0f,
+            HashIcon::HoverBoots => 0x10,
+            HashIcon::KokiriTunic => 0x11,
+            HashIcon::LensOfTruth => 0x12,
+            HashIcon::Longshot => 0x13,
+            HashIcon::Map => 0x14,
+            HashIcon::MaskOfTruth => 0x15,
+            HashIcon::MasterSword => 0x16,
+            HashIcon::MegatonHammer => 0x17,
+            HashIcon::MirrorShield => 0x18,
+            HashIcon::Mushroom => 0x19,
+            HashIcon::Saw => 0x1a,
+            HashIcon::SilverGauntlets => 0x1b,
+            HashIcon::SkullToken => 0x1c,
+            HashIcon::Slingshot => 0x1d,
+            HashIcon::SoldOut => 0x1e,
+            HashIcon::StoneOfAgony => 0x1f,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Sequence, Deserialize, Serialize, Protocol)]
 pub enum OcarinaNote {
     A,
