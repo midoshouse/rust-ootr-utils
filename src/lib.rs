@@ -1,7 +1,9 @@
 use {
     std::{
+        borrow::Cow,
         env,
         fmt,
+        iter,
         num::NonZeroU8,
         path::{
             Path,
@@ -10,6 +12,7 @@ use {
         str::FromStr,
     },
     async_proto::Protocol,
+    dir_lock::DirLock,
     directories::UserDirs,
     itertools::{
         Itertools as _,
@@ -29,8 +32,10 @@ use {
             SyncCommandOutputExt as _,
         },
     },
+    which::which,
 };
 #[cfg(unix)] use xdg::BaseDirectories;
+#[cfg(windows)] use directories::BaseDirs;
 
 pub mod camc;
 pub mod spoiler;
@@ -172,10 +177,33 @@ impl Branch {
             fs::exists(dir.join("Cargo.toml")).await?
         };
         if build_rust {
-            //TODO update Rust
+            let rust_lock_dir: Cow<'static, Path> = {
+                #[cfg(unix)] { Cow::Borrowed(Path::new("/tmp/syncbin-startup-rust.lock")) }
+                #[cfg(windows)] { Cow::Owned(BaseDirs::new().ok_or(CloneError::HomeDir)?.data_local_dir().join("Temp").join("syncbin-startup-rust.lock")) }
+            };
+            if !which("rustup").is_ok_and(|rustup_path| rustup_path.starts_with("/nix/store")) { // skip self-update if rustup is managed //TODO update rustup via nix
+                let lock = DirLock::new(&rust_lock_dir).await?;
+                let mut rustup_cmd = Command::new("rustup");
+                if let Some(user_dirs) = UserDirs::new() {
+                    rustup_cmd.env("PATH", env::join_paths(iter::once(user_dirs.home_dir().join(".cargo").join("bin")).chain(env::var_os("PATH").map(|path| env::split_paths(&path).collect::<Vec<_>>()).into_iter().flatten()))?);
+                }
+                rustup_cmd.arg("self");
+                rustup_cmd.arg("update");
+                rustup_cmd.check("rustup").await?;
+                lock.drop_async().await?;
+            }
+            let lock = DirLock::new(rust_lock_dir).await?;
+            let mut rustup_cmd = Command::new("rustup");
+            if let Some(user_dirs) = UserDirs::new() {
+                rustup_cmd.env("PATH", env::join_paths(iter::once(user_dirs.home_dir().join(".cargo").join("bin")).chain(env::var_os("PATH").map(|path| env::split_paths(&path).collect::<Vec<_>>()).into_iter().flatten()))?);
+            }
+            rustup_cmd.arg("update");
+            rustup_cmd.arg("stable");
+            rustup_cmd.check("rustup").await?;
+            lock.drop_async().await?;
             let mut cargo = Command::new("cargo");
             if let Some(user_dirs) = UserDirs::new() {
-                cargo.env("PATH", format!("{}:{}", user_dirs.home_dir().join(".cargo").join("bin").display(), env::var("PATH")?));
+                cargo.env("PATH", env::join_paths(iter::once(user_dirs.home_dir().join(".cargo").join("bin")).chain(env::var_os("PATH").map(|path| env::split_paths(&path).collect::<Vec<_>>()).into_iter().flatten()))?);
             }
             cargo.arg("build");
             cargo.arg("--lib"); // old versions of the riir branch were organized as a single crate with multiple targets
@@ -200,7 +228,7 @@ impl Branch {
             if use_rust_cli {
                 let mut cargo = Command::new("cargo");
                 if let Some(user_dirs) = UserDirs::new() {
-                    cargo.env("PATH", format!("{}:{}", user_dirs.home_dir().join(".cargo").join("bin").display(), env::var("PATH")?));
+                    cargo.env("PATH", env::join_paths(iter::once(user_dirs.home_dir().join(".cargo").join("bin")).chain(env::var_os("PATH").map(|path| env::split_paths(&path).collect::<Vec<_>>()).into_iter().flatten()))?);
                 }
                 cargo.arg("build");
                 cargo.arg("--release");
@@ -237,7 +265,8 @@ pub enum DirError {
 pub enum CloneError {
     #[error(transparent)] CargoMetadata(#[from] cargo_metadata::Error),
     #[error(transparent)] Dir(#[from] DirError),
-    #[error(transparent)] Env(#[from] env::VarError),
+    #[error(transparent)] DirLock(#[from] dir_lock::Error),
+    #[error(transparent)] EnvJoinPaths(#[from] env::JoinPathsError),
     #[error(transparent)] GitCommit(#[from] gix::object::commit::Error),
     #[error(transparent)] GitFindObject(#[from] gix::object::find::existing::Error),
     #[error(transparent)] GitHeadCommit(#[from] gix::reference::head_commit::Error),
@@ -249,6 +278,9 @@ pub enum CloneError {
     #[error(transparent)] Wheel(#[from] wheel::Error),
     #[error("failed to convert git object")]
     GitObject,
+    #[cfg(windows)]
+    #[error("could not determine home dir")]
+    HomeDir,
     #[error("encountered a revision of the randomizer repo without a version.py")]
     MissingVersionFile,
     #[error("the given version was not found on its branch")]

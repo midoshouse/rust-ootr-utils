@@ -16,6 +16,7 @@ warnings = "deny"
 [dependencies]
 async-proto = { version = "0.25", features = ["semver"] }
 cargo_metadata = "0.19.1"
+dir-lock = "0.4.1"
 directories = "6"
 enum-iterator = "2"
 gix = "0.70"
@@ -29,6 +30,7 @@ sqlx = { version = "0.8", optional = true, features = ["runtime-tokio-rustls"] }
 thiserror = "2"
 tokio = { version = "1.25.0", features = ["parking_lot", "process"] }
 wheel = { git = "https://github.com/fenhl/wheel", branch = "main" }
+which = "7.0.2"
 
 [target."cfg(unix)".dependencies]
 xdg = "2.4.1"
