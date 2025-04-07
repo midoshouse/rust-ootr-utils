@@ -22,7 +22,11 @@ use {
         regex_is_match,
         regex_captures,
     },
-    serde::de::DeserializeOwned,
+    serde::{
+        Deserialize,
+        Serialize,
+        de::DeserializeOwned,
+    },
     serde_plain::derive_deserialize_from_fromstr,
     tokio::process::Command,
     wheel::{
@@ -40,7 +44,7 @@ use {
 pub mod camc;
 pub mod spoiler;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub enum Branch {
     Dev,
     DevBlitz,
