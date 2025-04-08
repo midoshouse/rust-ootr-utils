@@ -557,6 +557,7 @@ derive_deserialize_from_fromstr!(Version, "valid randomizer version number");
 impl fmt::Display for Version {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.branch {
+            Branch::Dev if self.base.patch == 0 => write!(f, "{} Release", self.base),
             Branch::Dev | Branch::Sgl2023 | Branch::Sgl2024 => write!(f, "{} f.LUM", self.base),
             Branch::DevBlitz => write!(f, "{} blitz-{}", self.base, self.supplementary.unwrap()),
             Branch::DevFenhl => write!(f, "{} Fenhl-{}", self.base, self.supplementary.unwrap()),
