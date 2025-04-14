@@ -277,7 +277,9 @@ pub enum CloneError {
     #[error(transparent)] GitHeadId(#[from] gix::reference::head_id::Error),
     #[error(transparent)] GitTryInto(#[from] gix::object::try_into::Error),
     #[error(transparent)] GitOpen(#[from] gix::open::Error),
+    #[error(transparent)] ParseInt(#[from] std::num::ParseIntError),
     #[error(transparent)] Semver(#[from] semver::Error),
+    #[error(transparent)] Toml(#[from] toml::de::Error),
     #[error(transparent)] Utf8(#[from] std::str::Utf8Error),
     #[error(transparent)] Wheel(#[from] wheel::Error),
     #[error("failed to convert git object")]
@@ -287,6 +289,8 @@ pub enum CloneError {
     HomeDir,
     #[error("encountered a revision of the randomizer repo without a version.py")]
     MissingVersionFile,
+    #[error("failed to parse prerelease segment of Cargo.toml version")]
+    RustParse,
     #[error("the given version was not found on its branch")]
     VersionNotFound,
 }
@@ -379,31 +383,31 @@ impl Version {
         }
     }
 
-    pub fn dir_name(&self) -> String {
+    pub fn dir_name(&self, allow_riir: bool) -> String {
         format!(
             "rando-{}-{}{}",
-            self.web_branch_name_known_settings(),
+            if allow_riir && self.branch == Branch::DevFenhl { "riir" } else { self.web_branch_name_known_settings() },
             self.base,
             if let Some(supplementary) = self.supplementary { format!("-{supplementary}") } else { String::default() },
         )
     }
 
-    fn repo_dir_name(&self) -> String {
+    fn repo_dir_name(&self, #[cfg_attr(windows, allow(unused))] allow_riir: bool) -> String {
         #[cfg(unix)] {
-            self.dir_name()
+            self.dir_name(allow_riir)
         }
         #[cfg(windows)] {
             self.base.to_string() //TODO adjust for tag systems on branches other than Dev
         }
     }
 
-    pub fn dir(&self) -> Result<PathBuf, DirError> {
-        Ok(self.dir_parent()?.join(self.repo_dir_name()))
+    pub fn dir(&self, allow_riir: bool) -> Result<PathBuf, DirError> {
+        Ok(self.dir_parent()?.join(self.repo_dir_name(allow_riir)))
     }
 
-    pub async fn clone_repo(&self) -> Result<(), CloneError> {
-        let dir = self.dir()?;
-        if !fs::exists(&dir).await? {
+    pub async fn clone_repo(&self, allow_riir: bool) -> Result<(), CloneError> {
+        let dir = self.dir(allow_riir)?;
+        if !fs::exists(&dir).await? { //TODO check for updates for DevFenhl with allow_riir
             let parent = self.dir_parent()?;
             fs::create_dir_all(&parent).await?;
             let to_try = match self.branch {
@@ -420,7 +424,11 @@ impl Version {
                 } else {
                     vec![(vec![format!("--branch={}", self.base)], false)]
                 },
-                Branch::DevFenhl => vec![(vec![format!("--branch={}-fenhl.{}", self.base, self.supplementary.unwrap())], false)],
+                Branch::DevFenhl => if allow_riir {
+                    vec![(vec![format!("--branch=riir")], true)]
+                } else {
+                    vec![(vec![format!("--branch={}-fenhl.{}", self.base, self.supplementary.unwrap())], false)]
+                },
                 Branch::DevRob => vec![
                     // Rob sometimes tags new versions but doesn't merge them into Dev-Rob.
                     (vec![format!("--branch={}.Rob-{}", self.base, self.supplementary.unwrap())], false),
@@ -449,7 +457,7 @@ impl Version {
                 let mut command = Command::new("git");
                 command.arg("clone");
                 command.arg(format!("https://github.com/{}/OoT-Randomizer.git", self.branch.github_username()));
-                command.arg(self.repo_dir_name());
+                command.arg(self.repo_dir_name(allow_riir));
                 command.args(args);
                 if !bisect {
                     command.arg("--depth=1");
@@ -465,17 +473,46 @@ impl Version {
                     let repo = gix::open(&dir)?;
                     let mut commit = repo.head_commit()?;
                     loop {
-                        let blob = commit.tree()?.find_entry("version.py").ok_or(CloneError::MissingVersionFile)?.object()?.try_into_blob()?;
-                        let version_py = std::str::from_utf8(&blob.data)?;
-                        if version_py.lines()
-                            .filter_map(|line| regex_captures!("^__version__ = '([0-9.]+)'$", line))
-                            .filter_map(|(_, base_version)| base_version.parse::<semver::Version>().ok())
-                            .any(|base_version| base_version == self.base)
-                        && self.supplementary.map_or(true, |supplementary| version_py.lines()
-                            .filter_map(|line| regex_captures!("^supplementary_version = ([0-9]+)$", line))
-                            .filter_map(|(_, supplementary_version)| supplementary_version.parse::<u8>().ok())
-                            .any(|supplementary_version| supplementary_version == supplementary))
-                        { break }
+                        let is_match = if let Some(cargo_toml) = commit.tree()?.find_entry("Cargo.toml") {
+                            #[derive(Deserialize)]
+                            struct CargoManifest {
+                                workspace: CargoWorkspace,
+                            }
+
+                            #[derive(Deserialize)]
+                            struct CargoWorkspace {
+                                package: CargoPackage,
+                            }
+
+                            #[derive(Deserialize)]
+                            struct CargoPackage {
+                                version: semver::Version,
+                            }
+
+                            let blob = cargo_toml.object()?.try_into_blob()?;
+                            let cargo_toml = std::str::from_utf8(&blob.data)?;
+
+                            let version = if let Ok(manifest) = toml::from_str::<CargoManifest>(cargo_toml) {
+                                manifest.workspace.package.version
+                            } else {
+                                toml::from_str::<CargoWorkspace>(cargo_toml)?.package.version
+                            };
+                            let [_branch, supplementary_version, _subbranch, _subsupplementary] = version.pre.split('.').collect::<Vec<_>>().try_into().map_err(|_| CloneError::RustParse)?;
+                            let supplementary_version = supplementary_version.parse::<u8>()?;
+                            version == self.base && self.supplementary.is_some_and(|supplementary| supplementary_version == supplementary)
+                        } else {
+                            let blob = commit.tree()?.find_entry("version.py").ok_or(CloneError::MissingVersionFile)?.object()?.try_into_blob()?;
+                            let version_py = std::str::from_utf8(&blob.data)?;
+                            version_py.lines()
+                                .filter_map(|line| regex_captures!("^__version__ = '([0-9.]+)'$", line))
+                                .filter_map(|(_, base_version)| base_version.parse::<semver::Version>().ok())
+                                .any(|base_version| base_version == self.base)
+                            && self.supplementary.map_or(true, |supplementary| version_py.lines()
+                                .filter_map(|line| regex_captures!("^supplementary_version = ([0-9]+)$", line))
+                                .filter_map(|(_, supplementary_version)| supplementary_version.parse::<u8>().ok())
+                                .any(|supplementary_version| supplementary_version == supplementary))
+                        };
+                        if is_match { break }
                         let parent_id = commit.parent_ids().next().ok_or(CloneError::VersionNotFound)?;
                         commit = parent_id.object()?.try_into_commit()?;
                     }
@@ -486,11 +523,11 @@ impl Version {
         Ok(())
     }
 
-    pub fn py_modules(&self, python: impl AsRef<Path>) -> Result<PyModules, DirError> {
+    pub fn py_modules(&self, python: impl AsRef<Path>, allow_riir: bool) -> Result<PyModules, DirError> {
         Ok(PyModules {
             python: python.as_ref().to_owned(),
             version: self.clone(),
-            path: self.dir()?,
+            path: self.dir(allow_riir)?,
         })
     }
 }
