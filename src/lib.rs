@@ -44,6 +44,70 @@ use {
 pub mod camc;
 pub mod spoiler;
 
+async fn build_rust(dir: &Path) -> Result<(), CloneError> {
+    let cargo_manifest_path = dir.join("Cargo.toml");
+    let rust_lock_dir: Cow<'static, Path> = {
+        #[cfg(unix)] { Cow::Borrowed(Path::new("/tmp/syncbin-startup-rust.lock")) }
+        #[cfg(windows)] { Cow::Owned(BaseDirs::new().ok_or(CloneError::HomeDir)?.data_local_dir().join("Temp").join("syncbin-startup-rust.lock")) }
+    };
+    if !which("rustup").is_ok_and(|rustup_path| rustup_path.starts_with("/nix/store")) { // skip self-update if rustup is managed //TODO update rustup via nix
+        let lock = DirLock::new(&rust_lock_dir).await?;
+        let mut rustup_cmd = Command::new("rustup");
+        if let Some(user_dirs) = UserDirs::new() {
+            rustup_cmd.env("PATH", env::join_paths(iter::once(user_dirs.home_dir().join(".cargo").join("bin")).chain(env::var_os("PATH").map(|path| env::split_paths(&path).collect::<Vec<_>>()).into_iter().flatten()))?);
+        }
+        rustup_cmd.arg("self");
+        rustup_cmd.arg("update");
+        rustup_cmd.check("rustup").await?;
+        lock.drop_async().await?;
+    }
+    let lock = DirLock::new(rust_lock_dir).await?;
+    let mut rustup_cmd = Command::new("rustup");
+    if let Some(user_dirs) = UserDirs::new() {
+        rustup_cmd.env("PATH", env::join_paths(iter::once(user_dirs.home_dir().join(".cargo").join("bin")).chain(env::var_os("PATH").map(|path| env::split_paths(&path).collect::<Vec<_>>()).into_iter().flatten()))?);
+    }
+    rustup_cmd.arg("update");
+    rustup_cmd.arg("stable");
+    rustup_cmd.check("rustup").await?;
+    lock.drop_async().await?;
+    let mut cargo = Command::new("cargo");
+    if let Some(user_dirs) = UserDirs::new() {
+        cargo.env("PATH", env::join_paths(iter::once(user_dirs.home_dir().join(".cargo").join("bin")).chain(env::var_os("PATH").map(|path| env::split_paths(&path).collect::<Vec<_>>()).into_iter().flatten()))?);
+    }
+    cargo.arg("build");
+    cargo.arg("--lib"); // old versions of the riir branch were organized as a single crate with multiple targets
+    cargo.arg("--release");
+    cargo.arg("--package=ootr-python");
+    cargo.current_dir(dir);
+    cargo.check("cargo build").await?;
+    #[cfg(target_os = "windows")] fs::copy(dir.join("target").join("release").join("rs.dll"), dir.join("rs.pyd")).await?;
+    #[cfg(target_os = "linux")] fs::copy(dir.join("target").join("release").join("librs.so"), dir.join("rs.so")).await?;
+    #[cfg(target_os = "macos")] fs::copy(dir.join("target").join("release").join("librs.dylib"), dir.join("rs.so")).await?;
+    let use_rust_cli = if let Some(package) = cargo_metadata::MetadataCommand::new()
+        .manifest_path(cargo_manifest_path)
+        .exec()?
+        .packages
+        .into_iter()
+        .find(|package| package.name == "ootr-cli")
+    {
+        package.version >= semver::Version { major: 8, minor: 2, patch: 49, pre: "fenhl.1.riir.2".parse()?, build: semver::BuildMetadata::default() }
+    } else {
+        false
+    };
+    if use_rust_cli {
+        let mut cargo = Command::new("cargo");
+        if let Some(user_dirs) = UserDirs::new() {
+            cargo.env("PATH", env::join_paths(iter::once(user_dirs.home_dir().join(".cargo").join("bin")).chain(env::var_os("PATH").map(|path| env::split_paths(&path).collect::<Vec<_>>()).into_iter().flatten()))?);
+        }
+        cargo.arg("build");
+        cargo.arg("--release");
+        cargo.arg("--package=ootr-cli"); // old versions of the riir branch had ootr-python as the default crate
+        cargo.current_dir(dir);
+        cargo.check("cargo build").await?;
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub enum Branch {
     Dev,
@@ -156,7 +220,7 @@ impl Branch {
     pub async fn clone_repo(&self, allow_riir: bool) -> Result<(), CloneError> {
         let dir = self.dir(allow_riir)?;
         let cargo_manifest_path = dir.join("Cargo.toml");
-        let build_rust = if fs::exists(&dir).await? {
+        let needs_rust_build = if fs::exists(&dir).await? {
             let old_commit_hash = gix::open(&dir)?.head_id()?.detach();
             //TODO hard reset to remote instead?
             //TODO use gix instead?
@@ -180,66 +244,8 @@ impl Branch {
             command.check("git clone").await?;
             fs::exists(dir.join("Cargo.toml")).await?
         };
-        if build_rust {
-            let rust_lock_dir: Cow<'static, Path> = {
-                #[cfg(unix)] { Cow::Borrowed(Path::new("/tmp/syncbin-startup-rust.lock")) }
-                #[cfg(windows)] { Cow::Owned(BaseDirs::new().ok_or(CloneError::HomeDir)?.data_local_dir().join("Temp").join("syncbin-startup-rust.lock")) }
-            };
-            if !which("rustup").is_ok_and(|rustup_path| rustup_path.starts_with("/nix/store")) { // skip self-update if rustup is managed //TODO update rustup via nix
-                let lock = DirLock::new(&rust_lock_dir).await?;
-                let mut rustup_cmd = Command::new("rustup");
-                if let Some(user_dirs) = UserDirs::new() {
-                    rustup_cmd.env("PATH", env::join_paths(iter::once(user_dirs.home_dir().join(".cargo").join("bin")).chain(env::var_os("PATH").map(|path| env::split_paths(&path).collect::<Vec<_>>()).into_iter().flatten()))?);
-                }
-                rustup_cmd.arg("self");
-                rustup_cmd.arg("update");
-                rustup_cmd.check("rustup").await?;
-                lock.drop_async().await?;
-            }
-            let lock = DirLock::new(rust_lock_dir).await?;
-            let mut rustup_cmd = Command::new("rustup");
-            if let Some(user_dirs) = UserDirs::new() {
-                rustup_cmd.env("PATH", env::join_paths(iter::once(user_dirs.home_dir().join(".cargo").join("bin")).chain(env::var_os("PATH").map(|path| env::split_paths(&path).collect::<Vec<_>>()).into_iter().flatten()))?);
-            }
-            rustup_cmd.arg("update");
-            rustup_cmd.arg("stable");
-            rustup_cmd.check("rustup").await?;
-            lock.drop_async().await?;
-            let mut cargo = Command::new("cargo");
-            if let Some(user_dirs) = UserDirs::new() {
-                cargo.env("PATH", env::join_paths(iter::once(user_dirs.home_dir().join(".cargo").join("bin")).chain(env::var_os("PATH").map(|path| env::split_paths(&path).collect::<Vec<_>>()).into_iter().flatten()))?);
-            }
-            cargo.arg("build");
-            cargo.arg("--lib"); // old versions of the riir branch were organized as a single crate with multiple targets
-            cargo.arg("--release");
-            cargo.arg("--package=ootr-python");
-            cargo.current_dir(&dir);
-            cargo.check("cargo build").await?;
-            #[cfg(target_os = "windows")] fs::copy(dir.join("target").join("release").join("rs.dll"), dir.join("rs.pyd")).await?;
-            #[cfg(target_os = "linux")] fs::copy(dir.join("target").join("release").join("librs.so"), dir.join("rs.so")).await?;
-            #[cfg(target_os = "macos")] fs::copy(dir.join("target").join("release").join("librs.dylib"), dir.join("rs.so")).await?;
-            let use_rust_cli = if let Some(package) = cargo_metadata::MetadataCommand::new()
-                .manifest_path(cargo_manifest_path)
-                .exec()?
-                .packages
-                .into_iter()
-                .find(|package| package.name == "ootr-cli")
-            {
-                package.version >= semver::Version { major: 8, minor: 2, patch: 49, pre: "fenhl.1.riir.2".parse()?, build: semver::BuildMetadata::default() }
-            } else {
-                false
-            };
-            if use_rust_cli {
-                let mut cargo = Command::new("cargo");
-                if let Some(user_dirs) = UserDirs::new() {
-                    cargo.env("PATH", env::join_paths(iter::once(user_dirs.home_dir().join(".cargo").join("bin")).chain(env::var_os("PATH").map(|path| env::split_paths(&path).collect::<Vec<_>>()).into_iter().flatten()))?);
-                }
-                cargo.arg("build");
-                cargo.arg("--release");
-                cargo.arg("--package=ootr-cli"); // old versions of the riir branch had ootr-python as the default crate
-                cargo.current_dir(&dir);
-                cargo.check("cargo build").await?;
-            }
+        if needs_rust_build {
+            build_rust(&dir).await?;
         }
         Ok(())
     }
@@ -407,7 +413,10 @@ impl Version {
 
     pub async fn clone_repo(&self, allow_riir: bool) -> Result<(), CloneError> {
         let dir = self.dir(allow_riir)?;
-        if !fs::exists(&dir).await? { //TODO check for updates for DevFenhl with allow_riir
+        let needs_rust_build = if fs::exists(&dir).await? {
+            //TODO check for updates for DevFenhl with allow_riir
+            false
+        } else {
             let parent = self.dir_parent()?;
             fs::create_dir_all(&parent).await?;
             let to_try = match self.branch {
@@ -450,7 +459,7 @@ impl Version {
                 )],
                 Branch::DevBlitz | Branch::DevR => vec![(Vec::default(), true)], // no tags on these forks
             };
-            for (pos, (args, bisect)) in to_try.into_iter().with_position() {
+            'outer: for (pos, (args, bisect)) in to_try.into_iter().with_position() {
                 //TODO use gix instead? see:
                 // https://docs.rs/gix/latest/gix/fn.prepare_clone.html
                 // https://github.com/Byron/gitoxide/blob/072ee32f693a31161cd6a843da6582d13efbb20b/gitoxide-core/src/repository/clone.rs#L75-L84
@@ -512,13 +521,26 @@ impl Version {
                                 .filter_map(|(_, supplementary_version)| supplementary_version.parse::<u8>().ok())
                                 .any(|supplementary_version| supplementary_version == supplementary))
                         };
-                        if is_match { break }
-                        let parent_id = commit.parent_ids().next().ok_or(CloneError::VersionNotFound)?;
+                        if is_match {
+                            std::process::Command::new("git").arg("reset").arg("--hard").arg(commit.id.to_string()).check("git reset")?; //TODO use gix instead?
+                            break 'outer
+                        }
+                        let parent_id = if let Some(parent_id) = commit.parent_ids().next() {
+                            parent_id
+                        } else {
+                            match pos {
+                                Position::First | Position::Middle => continue,
+                                Position::Last | Position::Only => return Err(CloneError::VersionNotFound),
+                            }
+                        };
                         commit = parent_id.object()?.try_into_commit()?;
                     }
-                    std::process::Command::new("git").arg("reset").arg("--hard").arg(commit.id.to_string()).check("git reset")?; //TODO use gix instead?
                 }
             }
+            fs::exists(dir.join("Cargo.toml")).await?
+        };
+        if needs_rust_build {
+            build_rust(&dir).await?;
         }
         Ok(())
     }
