@@ -128,7 +128,7 @@ impl Branch {
             0x46 => Some(Self::Enemizer),
             0x52 => Some(Self::DevR),
             0x69 => Some(Self::DevBlitz),
-            0xfe => Some(Self::DevFenhl),
+            0xae | 0xfe => Some(Self::DevFenhl),
             _ => None,
         }
     }
