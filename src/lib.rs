@@ -251,6 +251,21 @@ impl Branch {
     }
 }
 
+impl fmt::Display for Branch {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Dev => write!(f, "Dev"),
+            Self::DevBlitz => write!(f, "Elagatua:Dev"),
+            Self::DevFenhl => write!(f, "dev-fenhl"),
+            Self::DevR => write!(f, "Dev-R"),
+            Self::DevRob => write!(f, "Dev-Rob"),
+            Self::Enemizer => write!(f, "enemy_shuffle"),
+            Self::Sgl2023 => write!(f, "SGL 2023"),
+            Self::Sgl2024 => write!(f, "SGL 2024"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Protocol)]
 #[async_proto(as_string)]
 pub struct Version {
@@ -698,7 +713,7 @@ class Settings:
 
 class World:
     def __init__(self, id):
-        self.id = id
+        self.id = id - 1
         self.settings = Settings()
 
     @property
