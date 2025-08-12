@@ -88,7 +88,7 @@ async fn build_rust(dir: &Path) -> Result<(), CloneError> {
         .exec()?
         .packages
         .into_iter()
-        .find(|package| package.name == "ootr-cli")
+        .find(|package| package.name.as_ref() == "ootr-cli")
     {
         package.version >= semver::Version { major: 8, minor: 2, patch: 49, pre: "fenhl.1.riir.2".parse()?, build: semver::BuildMetadata::default() }
     } else {
@@ -277,7 +277,6 @@ pub struct Version {
 
 #[derive(Debug, thiserror::Error)]
 pub enum DirError {
-    #[cfg(unix)] #[error(transparent)] Xdg(#[from] xdg::BaseDirectoriesError),
     #[cfg(unix)]
     #[error("midos-house data directory not found")]
     DataPath,
@@ -397,7 +396,7 @@ impl Version {
 
     fn dir_parent(&self) -> Result<PathBuf, DirError> {
         #[cfg(unix)] {
-            BaseDirectories::new()?.find_data_file("midos-house").ok_or(DirError::DataPath)
+            BaseDirectories::new().find_data_file("midos-house").ok_or(DirError::DataPath)
         }
         #[cfg(windows)] {
             Ok(UserDirs::new().ok_or(DirError::UserDirs)?.home_dir().join("git").join("github.com").join(self.branch.github_username()).join("OoT-Randomizer").join("tag"))
@@ -540,9 +539,7 @@ impl Version {
                             std::process::Command::new("git").arg("reset").arg("--hard").arg(commit.id.to_string()).check("git reset")?; //TODO use gix instead?
                             break 'outer
                         }
-                        let parent_id = if let Some(parent_id) = commit.parent_ids().next() {
-                            parent_id
-                        } else {
+                        let Some(parent_id) = commit.parent_ids().next() else {
                             match pos {
                                 Position::First | Position::Middle => continue,
                                 Position::Last | Position::Only => return Err(CloneError::VersionNotFound),

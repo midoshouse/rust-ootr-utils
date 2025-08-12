@@ -14,12 +14,12 @@ unused_qualifications = "deny"
 warnings = "deny"
 
 [dependencies]
-async-proto = { version = "0.25", features = ["semver"] }
-cargo_metadata = "0.19.1"
-dir-lock = "0.4.1"
+async-proto = { version = "0.26", features = ["semver"] }
+cargo_metadata = "0.21"
+dir-lock = "0.5"
 directories = "6"
 enum-iterator = "2"
-gix = "0.71"
+gix = "0.73"
 itertools = "0.14"
 lazy-regex = "3"
 semver = "1.0.16"
@@ -29,9 +29,9 @@ serde_plain = "1.0.1"
 sqlx = { version = "0.8", optional = true, features = ["runtime-tokio-rustls"] }
 thiserror = "2"
 tokio = { version = "1.25.0", features = ["parking_lot", "process"] }
-toml = { version = "0.8.20", default-features = false, features = ["parse"] }
+toml = { version = "0.9", default-features = false, features = ["parse", "serde", "std"] }
 wheel = { git = "https://github.com/fenhl/wheel", branch = "main" }
-which = "7.0.2"
+which = "8"
 
 [target."cfg(unix)".dependencies]
-xdg = "2.4.1"
+xdg = "3"
