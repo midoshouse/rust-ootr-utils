@@ -308,7 +308,7 @@ pub enum CloneError {
     #[error("could not determine home dir")]
     HomeDir,
     #[error("encountered a revision of the randomizer repo without a version.py")]
-    MissingVersionFile,
+    MissingVersionFile(Branch, gix::ObjectId),
     #[error("failed to parse prerelease segment of Cargo.toml version")]
     RustParse,
     #[error("the given version was not found on its branch")]
@@ -524,7 +524,7 @@ impl Version {
                             let supplementary_version = supplementary_version.parse::<u8>()?;
                             version == self.base && self.supplementary.is_some_and(|supplementary| supplementary_version == supplementary)
                         } else {
-                            let blob = commit.tree()?.find_entry("version.py").ok_or(CloneError::MissingVersionFile)?.object()?.try_into_blob()?;
+                            let blob = commit.tree()?.find_entry("version.py").ok_or(CloneError::MissingVersionFile(self.branch, commit.id))?.object()?.try_into_blob()?;
                             let version_py = std::str::from_utf8(&blob.data)?;
                             version_py.lines()
                                 .filter_map(|line| regex_captures!("^__version__ = '([0-9.]+)'$", line))
