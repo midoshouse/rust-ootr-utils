@@ -30,7 +30,7 @@ sqlx = { version = "0.8", optional = true, features = ["runtime-tokio-rustls"] }
 thiserror = "2"
 tokio = { version = "1.25.0", features = ["parking_lot", "process"] }
 toml = { version = "0.9", default-features = false, features = ["parse", "serde", "std"] }
-wheel = { git = "https://github.com/fenhl/wheel", branch = "main" }
+wheel = { git = "https://github.com/fenhl/wheel" }
 which = "8"
 
 [target."cfg(unix)".dependencies]
