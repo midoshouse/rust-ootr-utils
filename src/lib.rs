@@ -459,9 +459,8 @@ impl Version {
                     (Vec::default(), true),
                 ],
                 Branch::Enemizer => vec![
-                    // Handled like Dev-Rob to be safe
+                    // git branch is `enemy_shuffle` but it's regularly squashed (source: https://discord.com/channels/274180765816848384/476723801032491008/1462098200067309643) so we need to rely on tags
                     (vec![format!("--branch={}.Rob-E{}", self.base, self.supplementary.unwrap())], false),
-                    (vec![format!("--branch=enemy_shuffle")], true),
                 ],
                 Branch::Sgl2023 => vec![(
                     vec![format!("--branch=feature/sgl-2023")],
@@ -537,6 +536,7 @@ impl Version {
                         };
                         if is_match {
                             std::process::Command::new("git").arg("reset").arg("--hard").arg(commit.id.to_string()).check("git reset")?; //TODO use gix instead?
+                            //TODO delete and shallow reclone to save disk space
                             break 'outer
                         }
                         let Some(parent_id) = commit.parent_ids().next() else {
