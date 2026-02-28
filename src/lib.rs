@@ -84,8 +84,8 @@ async fn build_rust(dir: &Path) -> Result<(), CloneError> {
     #[cfg(target_os = "linux")] fs::copy(dir.join("target").join("release").join("librs.so"), dir.join("rs.so")).await?;
     #[cfg(target_os = "macos")] fs::copy(dir.join("target").join("release").join("librs.dylib"), dir.join("rs.so")).await?;
     let use_rust_cli = if let Some(package) = cargo_metadata::MetadataCommand::new()
-        .manifest_path(cargo_manifest_path)
-        .exec()?
+        .manifest_path(&cargo_manifest_path)
+        .exec().map_err(|source| CloneError::CargoMetadata { source, cargo_manifest_path })?
         .packages
         .into_iter()
         .find(|package| package.name.as_ref() == "ootr-cli")
@@ -287,7 +287,6 @@ pub enum DirError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum CloneError {
-    #[error(transparent)] CargoMetadata(#[from] cargo_metadata::Error),
     #[error(transparent)] Dir(#[from] DirError),
     #[error(transparent)] DirLock(#[from] dir_lock::Error),
     #[error(transparent)] EnvJoinPaths(#[from] env::JoinPathsError),
@@ -302,6 +301,11 @@ pub enum CloneError {
     #[error(transparent)] Toml(#[from] toml::de::Error),
     #[error(transparent)] Utf8(#[from] std::str::Utf8Error),
     #[error(transparent)] Wheel(#[from] wheel::Error),
+    #[error("{source} (Cargo manifest path: {})", .cargo_manifest_path.display())]
+    CargoMetadata {
+        source: cargo_metadata::Error,
+        cargo_manifest_path: PathBuf,
+    },
     #[error("failed to convert git object")]
     GitObject,
     #[cfg(windows)]
