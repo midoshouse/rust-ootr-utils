@@ -33,6 +33,7 @@ use {
         fs,
         traits::{
             AsyncCommandOutputExt as _,
+            IoResultExt as _,
             SyncCommandOutputExt as _,
         },
     },
@@ -44,7 +45,7 @@ use {
 pub mod camc;
 pub mod spoiler;
 
-async fn build_rust(dir: &Path) -> Result<(), CloneError> {
+async fn build_rust(dir: &Path, verbose: bool) -> Result<(), CloneError> {
     let cargo_manifest_path = dir.join("Cargo.toml");
     let rust_lock_dir: Cow<'static, Path> = {
         #[cfg(unix)] { Cow::Borrowed(Path::new("/tmp/syncbin-startup-rust.lock")) }
@@ -79,7 +80,11 @@ async fn build_rust(dir: &Path) -> Result<(), CloneError> {
     cargo.arg("--release");
     cargo.arg("--package=ootr-python");
     cargo.current_dir(dir);
-    cargo.check("cargo build").await?;
+    if verbose {
+        cargo.spawn().at_command("cargo build")?.check("cargo build").await?;
+    } else {
+        cargo.check("cargo build").await?;
+    }
     #[cfg(target_os = "windows")] fs::copy(dir.join("target").join("release").join("rs.dll"), dir.join("rs.pyd")).await?;
     #[cfg(target_os = "linux")] fs::copy(dir.join("target").join("release").join("librs.so"), dir.join("rs.so")).await?;
     #[cfg(target_os = "macos")] fs::copy(dir.join("target").join("release").join("librs.dylib"), dir.join("rs.so")).await?;
@@ -103,7 +108,11 @@ async fn build_rust(dir: &Path) -> Result<(), CloneError> {
         cargo.arg("--release");
         cargo.arg("--package=ootr-cli"); // old versions of the riir branch had ootr-python as the default crate
         cargo.current_dir(dir);
-        cargo.check("cargo build").await?;
+        if verbose {
+            cargo.spawn().at_command("cargo build")?.check("cargo build").await?;
+        } else {
+            cargo.check("cargo build").await?;
+        }
     }
     Ok(())
 }
@@ -217,7 +226,7 @@ impl Branch {
         Ok(self.dir_parent(allow_riir)?.join(self.dir_name(allow_riir)))
     }
 
-    pub async fn clone_repo(&self, allow_riir: bool) -> Result<(), CloneError> {
+    pub async fn clone_repo(&self, allow_riir: bool, verbose: bool) -> Result<(), CloneError> {
         let dir = self.dir(allow_riir)?;
         let cargo_manifest_path = dir.join("Cargo.toml");
         let needs_rust_build = if fs::exists(&dir).await? {
@@ -245,7 +254,9 @@ impl Branch {
             fs::exists(dir.join("Cargo.toml")).await?
         };
         if needs_rust_build {
-            build_rust(&dir).await?;
+            build_rust(&dir, verbose).await?;
+        } else {
+            if verbose { eprintln!("no Rust rebuild needed") }
         }
         Ok(())
     }
@@ -429,7 +440,7 @@ impl Version {
         Ok(self.dir_parent()?.join(self.repo_dir_name(allow_riir)))
     }
 
-    pub async fn clone_repo(&self, allow_riir: bool) -> Result<(), CloneError> {
+    pub async fn clone_repo(&self, allow_riir: bool, verbose: bool) -> Result<(), CloneError> {
         let dir = self.dir(allow_riir)?;
         let needs_rust_build = if fs::exists(&dir).await? {
             //TODO check for updates for DevFenhl with allow_riir
@@ -556,7 +567,9 @@ impl Version {
             fs::exists(dir.join("Cargo.toml")).await?
         };
         if needs_rust_build {
-            build_rust(&dir).await?;
+            build_rust(&dir, verbose).await?;
+        } else {
+            if verbose { eprintln!("no Rust rebuild needed") }
         }
         Ok(())
     }
