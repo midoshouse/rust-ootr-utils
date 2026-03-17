@@ -88,7 +88,11 @@ async fn build_rust(dir: &Path, verbose: bool) -> Result<(), CloneError> {
     #[cfg(target_os = "windows")] fs::copy(dir.join("target").join("release").join("rs.dll"), dir.join("rs.pyd")).await?;
     #[cfg(target_os = "linux")] fs::copy(dir.join("target").join("release").join("librs.so"), dir.join("rs.so")).await?;
     #[cfg(target_os = "macos")] fs::copy(dir.join("target").join("release").join("librs.dylib"), dir.join("rs.so")).await?;
-    let use_rust_cli = if let Some(package) = cargo_metadata::MetadataCommand::new()
+    let mut metadata_command = cargo_metadata::MetadataCommand::new();
+    if let Some(user_dirs) = UserDirs::new() {
+        metadata_command.env("PATH", env::join_paths(iter::once(user_dirs.home_dir().join(".cargo").join("bin")).chain(env::var_os("PATH").map(|path| env::split_paths(&path).collect::<Vec<_>>()).into_iter().flatten()))?);
+    }
+    let use_rust_cli = if let Some(package) = metadata_command
         .manifest_path(&cargo_manifest_path)
         .exec().map_err(|source| CloneError::CargoMetadata { source, cargo_manifest_path })?
         .packages
