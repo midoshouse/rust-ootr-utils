@@ -34,6 +34,7 @@ use {
         traits::{
             AsyncCommandOutputExt as _,
             IoResultExt as _,
+            SyncCommandOutputExt as _,
         },
     },
     which::which,
@@ -556,7 +557,7 @@ impl Version {
                                 .any(|supplementary_version| supplementary_version == supplementary))
                         };
                         if is_match {
-                            Command::new("git").arg("reset").arg("--hard").arg(commit.id.to_string()).current_dir(&dir).check("git reset").await?; //TODO use gix instead?
+                            std::process::Command::new("git").arg("reset").arg("--hard").arg(commit.id.to_string()).current_dir(&dir).check("git reset")?; // needs to be a blocking command to make this future Sync //TODO use gix instead?
                             //TODO delete and shallow reclone to save disk space
                             break 'outer
                         }
