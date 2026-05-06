@@ -239,7 +239,7 @@ impl Branch {
             //TODO use gix instead?
             Command::new("git").arg("pull").current_dir(&dir).check("git pull").await?;
             let new_commit_hash = gix::open(&dir)?.head_id()?.detach();
-            old_commit_hash != new_commit_hash && fs::exists(&cargo_manifest_path).await?
+            old_commit_hash != new_commit_hash && fs::exists(cargo_manifest_path).await?
         } else {
             let parent = self.dir_parent(allow_riir)?;
             fs::create_dir_all(&parent).await?;
@@ -255,7 +255,7 @@ impl Branch {
             command.arg(self.dir_name(allow_riir));
             command.current_dir(parent);
             command.check("git clone").await?;
-            fs::exists(dir.join("Cargo.toml")).await?
+            fs::exists(cargo_manifest_path).await?
         };
         if needs_rust_build {
             build_rust(&dir, verbose).await?;
@@ -326,12 +326,15 @@ pub enum CloneError {
     #[cfg(windows)]
     #[error("could not determine home dir")]
     HomeDir,
-    #[error("encountered a revision of the randomizer repo without a version.py")]
-    MissingVersionFile(Branch, gix::ObjectId),
+    #[error("encountered revision {} of the randomizer repo without a version.py while looking for version {version}", .commit_hash.to_hex_with_len(7))]
+    MissingVersionFile {
+        version: Version,
+        commit_hash: gix::ObjectId,
+    },
     #[error("failed to parse prerelease segment of Cargo.toml version")]
     RustParse,
-    #[error("the given version was not found on its branch")]
-    VersionNotFound,
+    #[error("version {0} was not found on its branch")]
+    VersionNotFound(Version),
 }
 
 impl Version {
@@ -542,7 +545,7 @@ impl Version {
                             let supplementary_version = supplementary_version.parse::<u8>()?;
                             version == self.base && self.supplementary.is_some_and(|supplementary| supplementary_version == supplementary)
                         } else {
-                            let blob = commit.tree()?.find_entry("version.py").ok_or(CloneError::MissingVersionFile(self.branch, commit.id))?.object()?.try_into_blob()?;
+                            let blob = commit.tree()?.find_entry("version.py").ok_or_else(|| CloneError::MissingVersionFile { version: self.clone(), commit_hash: commit.id })?.object()?.try_into_blob()?;
                             let version_py = std::str::from_utf8(&blob.data)?;
                             version_py.lines()
                                 .filter_map(|line| regex_captures!("^__version__ = '([0-9.]+)'$", line))
@@ -561,7 +564,7 @@ impl Version {
                         let Some(parent_id) = commit.parent_ids().next() else {
                             match pos {
                                 Position::First | Position::Middle => continue,
-                                Position::Last | Position::Only => return Err(CloneError::VersionNotFound),
+                                Position::Last | Position::Only => return Err(CloneError::VersionNotFound(self.clone())),
                             }
                         };
                         commit = parent_id.object()?.try_into_commit()?;
