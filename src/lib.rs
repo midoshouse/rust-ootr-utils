@@ -543,7 +543,7 @@ impl Version {
                             };
                             let [_branch, supplementary_version, _subbranch, _subsupplementary] = version.pre.split('.').collect::<Vec<_>>().try_into().map_err(|_| CloneError::RustParse)?;
                             let supplementary_version = supplementary_version.parse::<u8>()?;
-                            version == self.base && self.supplementary.is_some_and(|supplementary| supplementary_version == supplementary)
+                            semver::Version::new(version.major, version.minor, version.patch) == self.base && self.supplementary.is_some_and(|supplementary| supplementary_version == supplementary)
                         } else {
                             let blob = commit.tree()?.find_entry("version.py").ok_or_else(|| CloneError::MissingVersionFile { version: self.clone(), commit_hash: commit.id })?.object()?.try_into_blob()?;
                             let version_py = std::str::from_utf8(&blob.data)?;
