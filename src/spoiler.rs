@@ -78,7 +78,8 @@ pub fn deserialize_multiworld<'de, D: Deserializer<'de>, T: Deserialize<'de>>(de
 #[derive(Debug, Deserialize, Protocol)]
 pub struct SpoilerLog {
     pub file_hash: [HashIcon; 5],
-    pub password: Option<[OcarinaNote; 6]>,
+    #[serde(default)]
+    pub password: Vec<Button>,
     #[serde(rename = ":version")]
     pub version: crate::Version,
     #[serde(deserialize_with = "deserialize_multiworld")]
@@ -346,7 +347,7 @@ impl From<HashIcon> for u8 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Sequence, Deserialize, Serialize, Protocol)]
-pub enum OcarinaNote {
+pub enum Button {
     A,
     #[serde(rename = "C down")]
     CDown,
@@ -356,9 +357,12 @@ pub enum OcarinaNote {
     CLeft,
     #[serde(rename = "C up")]
     CUp,
+    L,
+    R,
+    Z,
 }
 
-impl OcarinaNote {
+impl Button {
     pub fn from_racetime_emoji(emoji: &str) -> Option<Self> {
         match emoji {
             "NoteA" => Some(Self::A),
@@ -366,6 +370,9 @@ impl OcarinaNote {
             "NoteCright" => Some(Self::CRight),
             "NoteCleft" => Some(Self::CLeft),
             "NoteCup" => Some(Self::CUp),
+            "NoteL" => Some(Self::L),
+            "NoteR" => Some(Self::R),
+            "NoteZ" => Some(Self::Z),
             _ => None,
         }
     }
@@ -377,33 +384,42 @@ impl OcarinaNote {
             Self::CRight => "NoteCright",
             Self::CLeft => "NoteCleft",
             Self::CUp => "NoteCup",
+            Self::L => "NoteL",
+            Self::R => "NoteR",
+            Self::Z => "NoteZ",
         }
     }
 }
 
-impl TryFrom<char> for OcarinaNote {
+impl TryFrom<char> for Button {
     type Error = char;
 
     fn try_from(c: char) -> Result<Self, char> {
         match c {
-            'A' | 'a' => Ok(Self::A),
-            'D' | 'd' | 'V' | 'v' => Ok(Self::CDown),
-            'R' | 'r' | '>' => Ok(Self::CRight),
-            'L' | 'l' | '<' => Ok(Self::CLeft),
-            'U' | 'u' | '^' => Ok(Self::CUp),
+            'A' => Ok(Self::A),
+            'v' => Ok(Self::CDown),
+            '>' => Ok(Self::CRight),
+            '<' => Ok(Self::CLeft),
+            '^' => Ok(Self::CUp),
+            'L' => Ok(Self::L),
+            'R' => Ok(Self::R),
+            'Z' => Ok(Self::Z),
             _ => Err(c),
         }
     }
 }
 
-impl From<OcarinaNote> for char {
-    fn from(note: OcarinaNote) -> Self {
+impl From<Button> for char {
+    fn from(note: Button) -> Self {
         match note {
-            OcarinaNote::A => 'A',
-            OcarinaNote::CDown => 'v',
-            OcarinaNote::CRight => '>',
-            OcarinaNote::CLeft => '<',
-            OcarinaNote::CUp => '^',
+            Button::A => 'A',
+            Button::CDown => 'v',
+            Button::CRight => '>',
+            Button::CLeft => '<',
+            Button::CUp => '^',
+            Button::L => 'L',
+            Button::R => 'R',
+            Button::Z => 'Z',
         }
     }
 }
