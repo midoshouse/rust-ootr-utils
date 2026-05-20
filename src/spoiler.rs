@@ -10,6 +10,7 @@ use {
     enum_iterator::Sequence,
     itertools::Itertools as _,
     lazy_regex::regex_captures,
+    nonempty_collections::NEVec,
     serde::{
         Deserialize,
         Deserializer,
@@ -78,8 +79,7 @@ pub fn deserialize_multiworld<'de, D: Deserializer<'de>, T: Deserialize<'de>>(de
 #[derive(Debug, Deserialize, Protocol)]
 pub struct SpoilerLog {
     pub file_hash: [HashIcon; 5],
-    #[serde(default)]
-    pub password: Vec<Button>,
+    pub password: Option<NEVec<Button>>,
     #[serde(rename = ":version")]
     pub version: crate::Version,
     #[serde(deserialize_with = "deserialize_multiworld")]
