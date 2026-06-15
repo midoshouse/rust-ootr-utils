@@ -51,7 +51,7 @@ async fn build_rust(dir: &Path, verbose: bool) -> Result<(), CloneError> {
         #[cfg(unix)] { Cow::Borrowed(Path::new("/tmp/syncbin-startup-rust.lock")) }
         #[cfg(windows)] { Cow::Owned(BaseDirs::new().ok_or(CloneError::HomeDir)?.data_local_dir().join("Temp").join("syncbin-startup-rust.lock")) }
     };
-    if !which("rustup").is_ok_and(|rustup_path| rustup_path.starts_with("/nix/store")) { // skip self-update if rustup is managed //TODO update rustup via nix
+    if !which("rustup").is_ok_and(|rustup_path| rustup_path.starts_with("/nix/store")) { // skip self-update if rustup is managed
         let lock = DirLock::new(&rust_lock_dir).await?;
         let mut rustup_cmd = Command::new("rustup");
         if let Some(user_dirs) = UserDirs::new() {
@@ -238,6 +238,7 @@ impl Branch {
             //TODO hard reset to remote instead?
             //TODO use gix instead?
             Command::new("git").arg("pull").current_dir(&dir).check("git pull").await?;
+            //TODO make shallow
             let new_commit_hash = gix::open(&dir)?.head_id()?.detach();
             old_commit_hash != new_commit_hash && fs::exists(cargo_manifest_path).await?
         } else {

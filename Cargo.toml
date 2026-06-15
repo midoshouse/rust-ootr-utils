@@ -13,6 +13,9 @@ unused_lifetimes = "deny"
 unused_qualifications = "deny"
 warnings = "deny"
 
+[features]
+unstable-protocol = []
+
 [dependencies]
 async-proto = { version = "0.26", features = ["nonempty-collections", "semver"] }
 cargo_metadata = "0.23"
