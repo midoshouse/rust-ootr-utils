@@ -76,7 +76,8 @@ pub fn deserialize_multiworld<'de, D: Deserializer<'de>, T: Deserialize<'de>>(de
     deserializer.deserialize_map(MultiworldVisitor { _marker: PhantomData })
 }
 
-#[derive(Debug, Deserialize, Protocol)]
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "unstable-protocol", derive(Protocol))]
 pub struct SpoilerLog {
     pub file_hash: [HashIcon; 5],
     pub password: Option<NEVec<Button>>,
@@ -426,8 +427,11 @@ impl From<Button> for char {
 
 fn make_one() -> NonZeroU8 { NonZeroU8::new(1).unwrap() }
 
-#[derive(Debug, Deserialize, Protocol)]
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "unstable-protocol", derive(Protocol))]
 pub struct Settings {
+    #[serde(default)]
+    pub user_message: String,
     #[serde(default = "make_one")]
     pub world_count: NonZeroU8,
     #[serde(default)]
@@ -449,13 +453,15 @@ pub struct Settings {
     pub invisible_chests: bool,
 }
 
-#[derive(Debug, Deserialize, Protocol)]
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "unstable-protocol", derive(Protocol))]
 pub struct RandomizedSettings {
     #[serde(default)]
     pub bridge: Bridge,
 }
 
-#[derive(Debug, Default, Deserialize, Protocol)]
+#[derive(Debug, Default, Deserialize)]
+#[cfg_attr(feature = "unstable-protocol", derive(Protocol))]
 #[serde(rename_all = "snake_case")]
 pub enum Bridge {
     Open,
@@ -469,7 +475,8 @@ pub enum Bridge {
     Random,
 }
 
-#[derive(Debug, Default, Deserialize, Protocol)]
+#[derive(Debug, Default, Deserialize)]
+#[cfg_attr(feature = "unstable-protocol", derive(Protocol))]
 #[serde(rename_all = "snake_case")]
 pub enum LacsCondition {
     #[default]
@@ -482,7 +489,8 @@ pub enum LacsCondition {
     Hearts,
 }
 
-#[derive(Debug, Default, Deserialize, Protocol)]
+#[derive(Debug, Default, Deserialize)]
+#[cfg_attr(feature = "unstable-protocol", derive(Protocol))]
 #[serde(rename_all = "snake_case")]
 pub enum ShuffleGanonBosskey {
     Remove,
@@ -506,7 +514,8 @@ pub enum ShuffleGanonBosskey {
     Hearts,
 }
 
-#[derive(Debug, Default, Clone, Copy, Deserialize, Protocol)]
+#[derive(Debug, Default, Clone, Copy, Deserialize)]
+#[cfg_attr(feature = "unstable-protocol", derive(Protocol))]
 #[serde(rename_all = "snake_case")]
 pub enum CorrectChestAppearances {
     #[default]
@@ -568,7 +577,8 @@ impl From<JsonMinorItemsAsMajorChest> for MinorItemsAsMajorChest {
     }
 }
 
-#[derive(Debug, Default, Deserialize, Protocol)]
+#[derive(Debug, Default, Deserialize)]
+#[cfg_attr(feature = "unstable-protocol", derive(Protocol))]
 #[serde(from = "JsonMinorItemsAsMajorChest")]
 pub struct MinorItemsAsMajorChest {
     pub bombchus: bool,
