@@ -14,10 +14,7 @@ use {
     async_proto::Protocol,
     dir_lock::DirLock,
     directories::UserDirs,
-    itertools::{
-        Itertools as _,
-        Position,
-    },
+    itertools::Itertools as _,
     lazy_regex::{
         regex_is_match,
         regex_captures,
@@ -86,8 +83,8 @@ async fn build_rust(dir: &Path, verbose: bool) -> Result<(), CloneError> {
         cargo.check("cargo build").await?;
     }
     #[cfg(target_os = "windows")] fs::copy(dir.join("target").join("release").join("rs.dll"), dir.join("rs.pyd")).await?;
-    #[cfg(target_os = "linux")] fs::copy(dir.join("target").join("release").join("librs.so"), dir.join("rs.so")).await?;
     #[cfg(target_os = "macos")] fs::copy(dir.join("target").join("release").join("librs.dylib"), dir.join("rs.so")).await?;
+    #[cfg(target_os = "linux")] fs::copy(dir.join("target").join("release").join("librs.so"), dir.join("rs.so")).await?;
     let mut metadata_command = cargo_metadata::MetadataCommand::new();
     if let Some(user_dirs) = UserDirs::new() {
         metadata_command.env("PATH", env::join_paths(iter::once(user_dirs.home_dir().join(".cargo").join("bin")).chain(env::var_os("PATH").map(|path| env::split_paths(&path).collect::<Vec<_>>()).into_iter().flatten()))?);
@@ -509,9 +506,10 @@ impl Version {
                 }
                 command.current_dir(&parent);
                 if let Err(e) = command.check("git clone").await {
-                    match pos {
-                        Position::First | Position::Middle => continue,
-                        Position::Last | Position::Only => return Err(e.into()),
+                    if pos.is_last {
+                        return Err(e.into())
+                    } else {
+                        continue
                     }
                 }
                 if bisect {
@@ -563,9 +561,10 @@ impl Version {
                             break 'outer
                         }
                         let Some(parent_id) = commit.parent_ids().next() else {
-                            match pos {
-                                Position::First | Position::Middle => continue,
-                                Position::Last | Position::Only => return Err(CloneError::VersionNotFound(self.clone())),
+                            if pos.is_last {
+                                return Err(CloneError::VersionNotFound(self.clone()))
+                            } else {
+                                continue
                             }
                         };
                         commit = parent_id.object()?.try_into_commit()?;
