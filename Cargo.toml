@@ -23,7 +23,7 @@ cargo_metadata = "0.23"
 dir-lock = "0.5"
 directories = "6"
 enum-iterator = "2"
-gix = "0.85"
+gix = "0.86"
 itertools = "0.15"
 lazy-regex = "3"
 nonempty-collections = { version = "1", features = ["serde"] }
