@@ -31,7 +31,7 @@ semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { package = "serde_json_path_to_error", version = "0.1" }
 serde_plain = "1"
-sqlx = { version = "0.8", optional = true, features = ["runtime-tokio-rustls"] }
+sqlx = { version = "0.9", optional = true, features = ["runtime-tokio", "tls-rustls"] }
 thiserror = "2"
 tokio = { version = "1", features = ["parking_lot", "process"] }
 toml = { version = "1", default-features = false, features = ["parse", "serde", "std"] }
